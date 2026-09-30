@@ -51,6 +51,7 @@ the UI. There are no thread, clock, or filesystem requirements in the rules core
 - [Architecture and boundaries](docs/architecture.md)
 - [Development, checks, and CI logs](docs/development.md)
 - [Roadmap](docs/roadmap.md)
+- [Verified checks](docs/verification.md)
 - [Shared contributor/agent guide](agents.md)
 
 MIT licensed. See [LICENSE](LICENSE).

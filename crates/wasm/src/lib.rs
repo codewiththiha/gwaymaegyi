@@ -36,7 +36,7 @@ pub fn play_uci(fen: &str, notation: &str, chess960: bool) -> Result<String, JsV
 }
 
 /// Returns a decimal count to preserve integer precision in JavaScript.
-/// Invalid FEN or a non-integer depth outside zero through six returns an error.
+/// Invalid FEN, fractional depths, and depths outside zero through six are errors.
 #[wasm_bindgen]
 pub fn perft(fen: &str, depth: f64) -> Result<String, JsValue> {
     // Adding zero normalizes negative zero without rounding fractional inputs.

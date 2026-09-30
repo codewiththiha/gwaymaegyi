@@ -15,5 +15,7 @@ Do not turn this list into empty placeholder crates.
 | Data generation and tools | Reproducible seeds, round-trip datasets, bounded resource use |
 | Measured optimization | Throughput and strength comparisons; native and WASM correctness retained |
 
-The rules foundation is the current increment. Search and evaluation are not yet
-available; generated binaries must not imply otherwise.
+The rules foundation gate is verified on Linux and in the compiled WASM module.
+See [verification](verification.md) for the source revision and checks.
+The next increment is position identity and game state. Search and evaluation
+are not yet available; generated binaries must not imply otherwise.
