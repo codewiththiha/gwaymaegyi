@@ -36,14 +36,17 @@ pub fn play_uci(fen: &str, notation: &str, chess960: bool) -> Result<String, JsV
 }
 
 /// Returns a decimal count to preserve integer precision in JavaScript.
-/// Invalid FEN or a depth greater than six returns an error.
+/// Invalid FEN or a non-integer depth outside zero through six returns an error.
 #[wasm_bindgen]
-pub fn perft(fen: &str, depth: u8) -> Result<String, JsValue> {
-    if depth > 6 {
+pub fn perft(fen: &str, depth: f64) -> Result<String, JsValue> {
+    // Adding zero normalizes negative zero without rounding fractional inputs.
+    let requested = depth + 0.0;
+    let valid = (0_u8..=6).find(|&value| f64::from(value).total_cmp(&requested).is_eq());
+    let Some(depth) = valid else {
         return Err(JsValue::from_str(
-            "WASM perft depth must be between zero and six",
+            "WASM perft depth must be an integer between zero and six",
         ));
-    }
+    };
     let board = parse_board(fen)?;
     Ok(gwaymaegyi_core::perft(&board, depth).to_string())
 }
