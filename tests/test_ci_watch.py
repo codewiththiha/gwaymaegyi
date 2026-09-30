@@ -1,4 +1,7 @@
+import contextlib
+import io
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -8,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from ci_watch.api import ApiError, SafeRedirect
 from ci_watch.cli import options
-from ci_watch.logs import LogStore, redact
+from ci_watch.logs import LogStore, context_lines, redact
 from ci_watch.monitor import Monitor
 
 SHA = "a" * 40
@@ -101,8 +104,20 @@ class WatcherTests(unittest.TestCase):
             with self.assertRaises(ApiError):
                 monitor.run()
 
+    def test_context_selection_keeps_diagnostics_not_cleanup(self):
+        lines = ["setup", "error[E0000]: broken", "source line", "help: correct this", "post-job cleanup"]
+        self.assertEqual(context_lines(lines, re.compile("error"), context=2), lines[:4])
+        self.assertEqual(context_lines(lines, re.compile("absent")), [])
+
+    def test_utf8_logs_never_exceed_byte_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = LogStore(directory, max_file_bytes=41, max_total_bytes=41)
+            path = store.write_job({"id": 3, "name": "unicode"}, ("😊" * 200).encode())
+            self.assertLessEqual(path.stat().st_size, 41)
+            path.read_text(encoding="utf-8")
+
     def test_invalid_polling_options_are_rejected(self):
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
             options(["watch", "--interval", "0"])
 
 

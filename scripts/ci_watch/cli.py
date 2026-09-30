@@ -40,6 +40,8 @@ def options(argv):
     read = commands.add_parser("read", help="inspect a saved summary without network access")
     read.add_argument("output", type=Path)
     read.add_argument("--tail", type=int, default=25)
+    read.add_argument("--job", help="select job names containing this text")
+    read.add_argument("--grep", help="show matching log lines with diagnostic context")
     args = parser.parse_args(argv)
     if args.command == "watch":
         if min(args.interval, args.max_interval, args.timeout, args.request_timeout) <= 0:
@@ -77,7 +79,7 @@ def main(argv=None):
     args = options(argv)
     try:
         if args.command == "read":
-            read_summary(args.output, args.tail)
+            read_summary(args.output, args.tail, job_filter=args.job, grep=args.grep)
             return 0
         args.repo = args.repo or infer_repo()
         if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", args.repo):
@@ -98,6 +100,6 @@ def main(argv=None):
     except KeyboardInterrupt:
         print("Watcher interrupted; the GitHub run was not cancelled", file=sys.stderr)
         return 130
-    except (ApiError, OSError, ValueError, subprocess.CalledProcessError) as error:
+    except (ApiError, OSError, ValueError, re.error, subprocess.CalledProcessError) as error:
         print(f"watcher: {error}", file=sys.stderr)
         return 2

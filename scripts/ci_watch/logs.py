@@ -1,5 +1,6 @@
 """Atomic summaries and bounded, redacted plain-text job logs."""
 import json
+from datetime import datetime, timezone
 import re
 from pathlib import Path
 
@@ -45,6 +46,7 @@ class LogStore:
 
     def snapshot(self, run, jobs):
         summary = {
+            "observed_at": datetime.now(timezone.utc).isoformat(),
             "run_id": run["id"],
             "attempt": run.get("run_attempt", 1),
             "sha": run["head_sha"],
@@ -65,15 +67,34 @@ class LogStore:
         return summary
 
 
-def read_summary(output, tail=25):
+
+def context_lines(lines, pattern, context=10, limit=100):
+    selected = set()
+    for index, line in enumerate(lines):
+        if pattern.search(line):
+            selected.update(range(max(0, index - 1), min(len(lines), index + context + 1)))
+    return [lines[index][:2000] for index in sorted(selected)[:limit]]
+
+
+def read_summary(output, tail=25, *, job_filter=None, grep=None):
     output = Path(output)
     summary = json.loads((output / "status.json").read_text(encoding="utf-8"))
     print(f"Run {summary['run_id']} attempt {summary['attempt']}: {summary['status']} / {summary['conclusion']}")
     print(summary["url"])
+    pattern = re.compile(grep) if grep else re.compile(r"error(?:\[|:)|test result: FAILED|assertion .*failed", re.IGNORECASE)
     for job in summary["jobs"]:
+        if job_filter and job_filter.lower() not in job["name"].lower():
+            continue
         print(f"  {job['name']}: {job['status']} / {job['conclusion']}")
-        if job.get("conclusion") in ("failure", "timed_out") and job.get("log"):
+        for step in job.get("failed_steps", []):
+            print(f"    Failed step: {step}")
+        failed = job.get("conclusion") in ("failure", "timed_out")
+        if job.get("log") and (failed or job_filter or grep):
             path = output / Path(job["log"]).name
             lines = path.read_text(encoding="utf-8").splitlines()
-            print("\n".join(lines[-tail:]))
+            focused = context_lines(lines, pattern)
+            print("\n".join(focused or [line[:2000] for line in lines[-tail:]]))
+            print(f"    Full log: {path}")
+    for job_id, reason in summary.get("unavailable_logs", {}).items():
+        print(f"  Log unavailable for job {job_id}: {reason}")
     return summary

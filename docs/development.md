@@ -52,7 +52,7 @@ GitHub exposes completed job logs, not a live stream of an active job's lines.
 export GH_TOKEN=... # optional for public repos; use an environment secret
 python3 scripts/watch_ci.py watch --sha "$(git rev-parse HEAD)"
 python3 scripts/watch_ci.py watch --run-id 123 --output .ci-logs/run-123 --background
-python3 scripts/watch_ci.py read .ci-logs/run-123 --tail 40
+python3 scripts/watch_ci.py read .ci-logs/run-123 --job WASM --grep error
 ```
 
 Use `--repo OWNER/REPO`, `--workflow`, `--branch`, `--token-file`, or `--token-env`
@@ -68,3 +68,5 @@ are removed on cross-host redirects. Never put credentials in URLs or tracked fi
 Exit codes: 0 success (or an active one-shot snapshot), 1 unsuccessful run,
 2 configuration/API error or run not found in one-shot mode, 124 timeout,
 130 interruption. Monitor interruption does not cancel the GitHub run.
+The reader highlights compiler/test diagnostics rather than post-job cleanup;
+`--tail` is the fallback when no matching diagnostic lines are present.
