@@ -15,7 +15,10 @@ fn help_is_honest_about_search_support() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn version_matches_the_manifest() -> Result<(), Box<dyn Error>> {
-    assert_eq!(output(&["--version"])?, format!("gwaymaegyi {}\n", env!("CARGO_PKG_VERSION")));
+    assert_eq!(
+        output(&["--version"])?,
+        format!("gwaymaegyi {}\n", env!("CARGO_PKG_VERSION"))
+    );
     Ok(())
 }
 
@@ -28,7 +31,13 @@ fn perft_has_the_correct_zero_and_root_counts() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn invalid_commands_return_errors() {
-    for args in [&["unknown"][..], &["perft"], &["perft", "255"], &["fen"], &["fen", "bad"]] {
+    for args in [
+        &["unknown"][..],
+        &["perft"],
+        &["perft", "255"],
+        &["fen"],
+        &["fen", "bad"],
+    ] {
         assert!(output(args).is_err());
     }
 }
