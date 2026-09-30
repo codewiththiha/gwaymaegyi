@@ -9,7 +9,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from ci_watch.api import ApiError, SafeRedirect
+from ci_watch.api import ApiError, GitHub, SafeRedirect
 from ci_watch.cli import options
 from ci_watch.logs import LogStore, context_lines, redact
 from ci_watch.monitor import Monitor
@@ -115,6 +115,28 @@ class WatcherTests(unittest.TestCase):
             path = store.write_job({"id": 3, "name": "unicode"}, ("😊" * 200).encode())
             self.assertLessEqual(path.stat().st_size, 41)
             path.read_text(encoding="utf-8")
+
+    def test_run_selector_distinguishes_manual_runs_from_push(self):
+        api = GitHub("owner/repo")
+        push = dict(run_data(), event="push", run_number=1)
+        manual = dict(run_data(), id=13, event="workflow_dispatch", run_number=2)
+        paths = []
+        def response(path):
+            paths.append(path)
+            return {"workflow_runs": [push, manual]}
+        api.json = response
+        selected = api.find_run(workflow="ci.yml", sha=SHA, event="workflow_dispatch")
+        self.assertEqual(selected["id"], 13)
+        self.assertIn("event=workflow_dispatch", paths[0])
+
+    def test_skipped_jobs_have_no_log_downloads(self):
+        with tempfile.TemporaryDirectory() as directory:
+            api = FakeApi()
+            api.jobs = lambda run: [{"id": 42, "name": "optional", "status": "completed", "conclusion": "skipped"}]
+            store = LogStore(directory)
+            self.assertEqual(Monitor(api, store, sha=SHA, report=lambda _: None).run(), 0)
+            self.assertEqual(api.downloads, 0)
+            self.assertEqual(store.unavailable, {})
 
     def test_invalid_polling_options_are_rejected(self):
         with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):

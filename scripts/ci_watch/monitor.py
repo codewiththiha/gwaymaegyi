@@ -5,7 +5,7 @@ from .api import ApiError
 
 
 class Monitor:
-    def __init__(self, api, store, *, workflow="ci.yml", sha=None, branch=None, run_id=None,
+    def __init__(self, api, store, *, workflow="ci.yml", sha=None, branch=None, event=None, run_id=None,
                  interval=8, max_interval=45, timeout=2700, once=False,
                  sleep=time.sleep, clock=time.monotonic, report=print):
         self.api = api
@@ -13,6 +13,7 @@ class Monitor:
         self.workflow = workflow
         self.sha = sha
         self.branch = branch
+        self.event = event
         self.run_id = run_id
         self.interval = interval
         self.max_interval = max_interval
@@ -32,7 +33,7 @@ class Monitor:
                 run = self.api.run(self.run_id)
             else:
                 try:
-                    run = self.api.find_run(workflow=self.workflow, sha=self.sha, branch=self.branch)
+                    run = self.api.find_run(workflow=self.workflow, sha=self.sha, branch=self.branch, event=self.event)
                 except ApiError as error:
                     if error.status != 404:
                         raise
@@ -62,7 +63,8 @@ class Monitor:
                     delay = min(delay * 1.5, self.max_interval)
                 for job in jobs:
                     key = str(job["id"])
-                    if job["status"] == "completed" and key not in self.store.log_files:
+                    if (job["status"] == "completed" and job.get("conclusion") != "skipped"
+                            and key not in self.store.log_files):
                         try:
                             path = self.store.write_job(job, self.api.job_logs(job["id"]))
                             if path:

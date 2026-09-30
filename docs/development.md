@@ -55,8 +55,10 @@ python3 scripts/watch_ci.py watch --run-id 123 --output .ci-logs/run-123 --backg
 python3 scripts/watch_ci.py read .ci-logs/run-123 --job WASM --grep error
 ```
 
-Use `--repo OWNER/REPO`, `--workflow`, `--branch`, `--token-file`, or `--token-env`
-when needed. The default is the exact HEAD commit, not whichever run is newest.
+Use `--repo OWNER/REPO`, `--workflow`, `--branch`, `--event`, `--token-file`, or `--token-env`
+when needed. Use `--event workflow_dispatch` to distinguish manual runs from push
+runs for the same commit. The default is the exact HEAD commit, not whichever run
+is newest.
 Adaptive polling ranges from 8 to 45 seconds. Network retries and API rate limits
 are handled; overall timeout defaults to 45 minutes. `--once` takes one snapshot.
 

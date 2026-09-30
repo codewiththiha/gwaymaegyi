@@ -26,6 +26,7 @@ def options(argv):
     watch.add_argument("--repo", help="OWNER/REPO; otherwise infer from origin")
     watch.add_argument("--sha", help="exact commit; defaults to HEAD when --run-id is absent")
     watch.add_argument("--branch")
+    watch.add_argument("--event", help="filter trigger type, such as push or workflow_dispatch")
     watch.add_argument("--workflow", default="ci.yml")
     watch.add_argument("--run-id", type=int)
     watch.add_argument("--interval", type=float, default=8)
@@ -93,7 +94,7 @@ def main(argv=None):
         token = args.token_file.read_text().strip() if args.token_file else os.environ.get(args.token_env, os.environ.get("GITHUB_TOKEN", ""))
         api = GitHub(args.repo, token, request_timeout=args.request_timeout)
         store = LogStore(args.output, token)
-        monitor = Monitor(api, store, workflow=args.workflow, sha=args.sha, branch=args.branch,
+        monitor = Monitor(api, store, workflow=args.workflow, sha=args.sha, branch=args.branch, event=args.event,
                           run_id=args.run_id, interval=args.interval, max_interval=args.max_interval,
                           timeout=args.timeout, once=args.once, report=lambda text: print(redact(text, token), flush=True))
         return monitor.run()

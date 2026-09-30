@@ -83,12 +83,15 @@ class GitHub:
         except (json.JSONDecodeError, UnicodeDecodeError):
             raise ApiError(0, "GitHub returned invalid JSON") from None
 
-    def find_run(self, *, workflow, sha, branch=None):
+    def find_run(self, *, workflow, sha, branch=None, event=None):
         query = {"per_page": 30, "head_sha": sha}
         if branch:
             query["branch"] = branch
+        if event:
+            query["event"] = event
         runs = self.json(f"/actions/workflows/{urllib.parse.quote(workflow, safe='')}/runs?" + urllib.parse.urlencode(query))
-        matches = [run for run in runs.get("workflow_runs", []) if run["head_sha"] == sha]
+        matches = [run for run in runs.get("workflow_runs", [])
+                   if run["head_sha"] == sha and (not event or run.get("event") == event)]
         return max(matches, key=lambda run: (run.get("run_number", 0), run.get("run_attempt", 1)), default=None)
 
     def run(self, run_id):
