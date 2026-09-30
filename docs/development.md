@@ -1,0 +1,68 @@
+# Development
+
+## Rust checks
+
+The toolchain file tracks current stable with edition 2024. The language minimum
+is declared separately in the workspace; dependency updates may raise it.
+Default rustfmt applies, including its default 100-column width.
+
+```sh
+cargo fmt --all -- --check
+cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+cargo test --locked --workspace --all-targets --all-features
+cargo doc --locked --workspace --no-deps
+cargo clippy --locked -p gwaymaegyi-wasm --target wasm32-unknown-unknown --all-targets -- -D warnings
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+```
+
+Clippy enables all, pedantic, and nursery groups; unwrap/expect and undocumented
+unsafe blocks are denied. Unsafe code is forbidden throughout the workspace.
+Compiler compatibility/style warnings and documentation warnings are also checked.
+
+## WASM runtime
+
+After the build and matching binding-tool install described in the README:
+
+```sh
+wasm-bindgen target/wasm32-unknown-unknown/wasm-release/gwaymaegyi_wasm.wasm --target nodejs --out-dir pkg/node
+node tests/wasm.cjs pkg/node/gwaymaegyi_wasm.js
+```
+
+Browser and Node packages contain the same engine module. Counts use decimal
+strings at the JavaScript boundary to preserve full integer precision.
+
+## Automated checks
+
+The CI workflow runs formatting/tooling, native lint/tests, and WASM lint/runtime
+in parallel. Actions are pinned to immutable revisions; dependencies use a checked-in
+lockfile. Dependency caches are separate for native and WASM and saved only on main.
+Obsolete runs are cancelled. Builds expose small, short-retention artifacts rather
+than generated files in Git. A manual `extended` input also tests Windows and macOS.
+The workflow is callable from another workflow without custom credentials.
+
+## Watching CI
+
+The standard-library Python watcher reads Actions status and completed job logs.
+It does not cancel runs, push changes, or download build artifacts.
+GitHub exposes completed job logs, not a live stream of an active job's lines.
+
+```sh
+export GH_TOKEN=... # optional for public repos; use an environment secret
+python3 scripts/watch_ci.py watch --sha "$(git rev-parse HEAD)"
+python3 scripts/watch_ci.py watch --run-id 123 --output .ci-logs/run-123 --background
+python3 scripts/watch_ci.py read .ci-logs/run-123 --tail 40
+```
+
+Use `--repo OWNER/REPO`, `--workflow`, `--branch`, `--token-file`, or `--token-env`
+when needed. The default is the exact HEAD commit, not whichever run is newest.
+Adaptive polling ranges from 8 to 45 seconds. Network retries and API rate limits
+are handled; overall timeout defaults to 45 minutes. `--once` takes one snapshot.
+
+The output directory contains atomic `status.json`, redacted plain-text job logs,
+and, in detached mode, `monitor.log`/`monitor.pid`. Job logs are capped at 2 MiB
+per file and 8 MiB total; separate directories keep separate runs. Auth headers
+are removed on cross-host redirects. Never put credentials in URLs or tracked files.
+
+Exit codes: 0 success (or an active one-shot snapshot), 1 unsuccessful run,
+2 configuration/API error or run not found in one-shot mode, 124 timeout,
+130 interruption. Monitor interruption does not cancel the GitHub run.

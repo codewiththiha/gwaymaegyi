@@ -1,0 +1,156 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      extended:
+        description: Also test Windows and macOS
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      extended:
+        description: Also test Windows and macOS
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: never
+  RUSTFLAGS: -Dwarnings
+  RUSTDOCFLAGS: -Dwarnings
+
+jobs:
+  hygiene:
+    name: Formatting and tooling
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Update stable formatting tools
+        run: rustup toolchain install stable --profile minimal --component rustfmt --no-self-update
+      - name: Validate commit messages
+        run: python3 scripts/check_commit.py
+      - name: Test Python tooling
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Check default Rust formatting
+        run: |
+          cargo fmt --all
+          git diff --binary -- '*.rs' > "$RUNNER_TEMP/rustfmt.patch"
+          if test -s "$RUNNER_TEMP/rustfmt.patch"; then
+            git diff --stat -- '*.rs'
+            echo 'Run cargo fmt --all; the correction patch is attached.'
+            exit 1
+          fi
+      - name: Attach formatting corrections
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rustfmt-patch
+          path: ${{ runner.temp }}/rustfmt.patch
+          if-no-files-found: ignore
+          retention-days: 3
+
+  native:
+    name: Native lint and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Update stable compiler and Clippy
+        run: rustup toolchain install stable --profile minimal --component clippy --no-self-update
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: native
+          save-if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+      - name: Report compiler version
+        run: rustc --version --verbose
+      - name: Enforce all workspace lints
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+      - name: Test rules and public APIs
+        run: cargo test --locked --workspace --all-targets --all-features
+      - name: Check documentation
+        run: cargo doc --locked --workspace --no-deps
+      - name: Build native executable
+        run: cargo build --locked --release -p gwaymaegyi
+      - name: Native command-line smoke test
+        run: |
+          test "$(target/release/gwaymaegyi --version)" = 'gwaymaegyi 0.1.0'
+          target/release/gwaymaegyi perft 3 | grep '^8902 nodes$'
+      - name: Attach native executable
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: gwaymaegyi-linux-${{ github.sha }}
+          path: target/release/gwaymaegyi
+          retention-days: 7
+
+  wasm:
+    name: WASM lint and runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Update stable compiler and WASM target
+        run: rustup toolchain install stable --profile minimal --component clippy --target wasm32-unknown-unknown --no-self-update
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: wasm
+          save-if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+      - name: Enforce WASM lints
+        run: cargo clippy --locked -p gwaymaegyi-wasm --target wasm32-unknown-unknown --all-targets -- -D warnings
+      - name: Build portable module
+        run: cargo build --locked -p gwaymaegyi-wasm --target wasm32-unknown-unknown --profile wasm-release
+      - name: Install matching binding tool
+        run: python3 scripts/setup_bindgen.py "$RUNNER_TEMP/bindgen"
+      - name: Package browser and Node bindings
+        run: |
+          wasm-bindgen target/wasm32-unknown-unknown/wasm-release/gwaymaegyi_wasm.wasm --target web --out-dir pkg/web
+          wasm-bindgen target/wasm32-unknown-unknown/wasm-release/gwaymaegyi_wasm.wasm --target nodejs --out-dir pkg/node
+      - name: Execute the compiled WASM module
+        run: node tests/wasm.cjs pkg/node/gwaymaegyi_wasm.js
+      - name: Attach WASM packages
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: gwaymaegyi-wasm-${{ github.sha }}
+          path: pkg/
+          retention-days: 7
+
+  portability:
+    name: Native on ${{ matrix.os }}
+    if: inputs.extended == true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Update stable compiler and Clippy
+        run: rustup toolchain install stable --profile minimal --component clippy --no-self-update
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: portability-${{ matrix.os }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+      - run: cargo test --locked --workspace --all-targets --all-features
