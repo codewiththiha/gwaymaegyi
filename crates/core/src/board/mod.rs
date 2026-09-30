@@ -1,22 +1,32 @@
-use crate::{Bitboard, Color, Move, Piece, PieceKind, Square, castling::CastlingRights};
+mod attacks;
+mod castling;
+mod fen;
+mod movegen;
+mod perft;
+mod play;
+
+use crate::{Bitboard, Color, Move, Piece, PieceKind, Square};
+use castling::CastlingRights;
+
+pub use perft::{divide, perft};
 
 pub const START_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 /// Mailbox and bitboard views are changed together through place and remove.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Board {
-    pub(crate) mailbox: [Option<Piece>; 64],
-    pub(crate) roles: [Bitboard; 6],
-    pub(crate) colors: [Bitboard; 2],
-    pub(crate) side: Color,
-    pub(crate) castling: CastlingRights,
-    pub(crate) en_passant: Option<Square>,
-    pub(crate) halfmove: u32,
-    pub(crate) fullmove: u32,
+    mailbox: [Option<Piece>; 64],
+    roles: [Bitboard; 6],
+    colors: [Bitboard; 2],
+    side: Color,
+    castling: CastlingRights,
+    en_passant: Option<Square>,
+    halfmove: u32,
+    fullmove: u32,
 }
 
 impl Board {
-    pub(crate) const fn empty() -> Self {
+    const fn empty() -> Self {
         Self {
             mailbox: [None; 64],
             roles: [Bitboard(0); 6],
@@ -57,21 +67,21 @@ impl Board {
 
     #[must_use]
     pub fn legal_moves(&self) -> Vec<Move> {
-        crate::movegen::legal_moves(self)
+        movegen::legal_moves(self)
     }
 
-    pub(crate) fn king(&self, color: Color) -> Option<Square> {
+    fn king(&self, color: Color) -> Option<Square> {
         self.pieces(color, PieceKind::King).into_iter().next()
     }
 
-    pub(crate) const fn place(&mut self, square: Square, piece: Piece) {
+    const fn place(&mut self, square: Square, piece: Piece) {
         self.remove(square);
         self.mailbox[square.index()] = Some(piece);
         self.roles[piece.kind.index()].0 |= square.bit();
         self.colors[piece.color.index()].0 |= square.bit();
     }
 
-    pub(crate) const fn remove(&mut self, square: Square) {
+    const fn remove(&mut self, square: Square) {
         if let Some(piece) = self.mailbox[square.index()].take() {
             self.roles[piece.kind.index()].0 &= !square.bit();
             self.colors[piece.color.index()].0 &= !square.bit();

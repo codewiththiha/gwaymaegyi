@@ -8,8 +8,8 @@
 | `crates/engine` | Process arguments, stdout/stderr, native exit codes | Chess rules |
 | `crates/wasm` | Browser-facing conversion and errors | A second board implementation, native assumptions |
 
-Within the core, `board.rs` owns storage and maintains mailbox/bitboard agreement.
-`fen.rs` parses structural invariants, `play.rs` owns state transitions,
+Within the core, `board/mod.rs` owns storage and maintains mailbox/bitboard agreement.
+Its child `fen.rs` parses structural invariants, `play.rs` owns state transitions,
 `attacks.rs` owns attack calculation, and `movegen/` owns candidate generation and
 king-safety filtering. `castling.rs` handles rook-origin rights and overlapping
 Chess960 destinations. Castling moves target the rook internally; adapters choose

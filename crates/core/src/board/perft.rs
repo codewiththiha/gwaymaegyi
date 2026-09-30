@@ -8,7 +8,7 @@ pub fn perft(board: &Board, depth: u8) -> u64 {
     }
     let moves = board.legal_moves();
     if depth == 1 {
-        return u64::try_from(moves.len()).unwrap_or(u64::MAX);
+        return moves.len() as u64;
     }
     moves
         .into_iter()

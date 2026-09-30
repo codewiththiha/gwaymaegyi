@@ -3,7 +3,8 @@
     reason = "Failure details use plain prose rather than Markdown sections."
 )]
 
-use crate::{Board, Move, MoveError, MoveKind, Piece, PieceKind, castling::destinations};
+use super::castling::destinations;
+use crate::{Board, Move, MoveError, MoveKind, Piece, PieceKind};
 
 impl Board {
     /// Invalid notation and moves outside the legal list return distinct errors.
@@ -21,7 +22,7 @@ impl Board {
             .ok_or(MoveError::IllegalMove)
     }
 
-    pub(crate) fn after_generated_move(&self, chess_move: Move) -> Option<Self> {
+    pub(super) fn after_generated_move(&self, chess_move: Move) -> Option<Self> {
         let from = chess_move.from();
         let to = chess_move.to();
         let piece = self.piece_on(from)?;

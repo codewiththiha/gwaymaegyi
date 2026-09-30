@@ -1,6 +1,7 @@
 mod pawns;
 
-use crate::{Bitboard, Board, Move, MoveKind, PieceKind, attacks::piece_attacks};
+use super::attacks::piece_attacks;
+use crate::{Bitboard, Board, Move, MoveKind, PieceKind};
 
 pub(super) fn legal_moves(board: &Board) -> Vec<Move> {
     let mut moves = Vec::with_capacity(64);
@@ -24,7 +25,7 @@ pub(super) fn legal_moves(board: &Board) -> Vec<Move> {
             }
         }
     }
-    crate::castling::generate(board, &mut moves);
+    super::castling::generate(board, &mut moves);
     moves.retain(|&chess_move| {
         board
             .after_generated_move(chess_move)

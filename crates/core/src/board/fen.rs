@@ -1,6 +1,7 @@
 use std::{fmt, str::FromStr};
 
-use crate::{Board, Color, FenError, Piece, PieceKind, Square, castling::rook_for_symbol};
+use super::castling::rook_for_symbol;
+use crate::{Board, Color, FenError, Piece, PieceKind, Square};
 
 const fn parse_piece(symbol: char) -> Option<Piece> {
     let kind = match symbol.to_ascii_lowercase() {
