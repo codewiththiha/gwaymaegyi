@@ -1,4 +1,9 @@
-use std::{env, error::Error, io::Write};
+#![expect(
+    clippy::missing_errors_doc,
+    reason = "Failure details use plain prose rather than Markdown sections."
+)]
+
+use std::{error::Error, io::Write};
 
 use gwaymaegyi_core::{Board, START_FEN, divide};
 
@@ -10,8 +15,11 @@ Usage:\n\
   gwaymaegyi --version\n\
 Castling uses standard UCI notation; search/UCI sessions are not implemented yet.\n";
 
-pub(super) fn run(output: &mut impl Write) -> Result<(), Box<dyn Error>> {
-    let mut args = env::args().skip(1);
+/// Reports invalid commands, position errors, or output failures to the caller.
+pub fn run(
+    mut args: impl Iterator<Item = String>,
+    output: &mut impl Write,
+) -> Result<(), Box<dyn Error>> {
     let Some(command) = args.next() else {
         output.write_all(HELP.as_bytes())?;
         return Ok(());

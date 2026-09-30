@@ -15,6 +15,9 @@ king-safety filtering. `castling.rs` handles rook-origin rights and overlapping
 Chess960 destinations. Castling moves target the rook internally; adapters choose
 the external UCI convention.
 
+The native command library receives arguments and an output writer explicitly;
+only its binary entry point reads process globals.
+
 Positions are copyable values. Externally supplied moves cannot call the internal
 state-transition helper. All state is owned; there are no mutable global registries.
 The initial safe, straightforward attack backend is the correctness baseline,
