@@ -77,6 +77,7 @@ pub(super) fn rook_for_symbol(board: &Board, color: Color, kingside: bool) -> Op
     let king = board.king(color)?;
     let rooks = board
         .pieces(color, PieceKind::Rook)
+        .into_iter()
         .filter(|rook| rook.rank() == color.home_rank() && (rook.file() > king.file()) == kingside);
     if kingside { rooks.max() } else { rooks.min() }
 }
