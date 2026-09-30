@@ -69,8 +69,15 @@ impl Move {
     #[must_use]
     pub fn to_uci(self, chess960: bool) -> String {
         let target = if self.kind == MoveKind::Castle && !chess960 {
-            Square::new(if self.to.file() > self.from.file() { 6 } else { 2 }, self.from.rank())
-                .unwrap_or(self.to)
+            Square::new(
+                if self.to.file() > self.from.file() {
+                    6
+                } else {
+                    2
+                },
+                self.from.rank(),
+            )
+            .unwrap_or(self.to)
         } else {
             self.to
         };

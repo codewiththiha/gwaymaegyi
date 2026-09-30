@@ -21,15 +21,30 @@ impl Bitboard {
     }
 }
 
-impl Iterator for Bitboard {
+/// Iteration state is separate from the copyable square set.
+#[derive(Clone, Debug)]
+pub struct Squares {
+    remaining: Bitboard,
+}
+
+impl IntoIterator for Bitboard {
+    type Item = Square;
+    type IntoIter = Squares;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Squares { remaining: self }
+    }
+}
+
+impl Iterator for Squares {
     type Item = Square;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.is_empty() {
+        if self.remaining.is_empty() {
             return None;
         }
-        let index = u8::try_from(self.0.trailing_zeros()).ok()?;
-        self.0 &= self.0 - 1;
+        let index = u8::try_from(self.remaining.0.trailing_zeros()).ok()?;
+        self.remaining.0 &= self.remaining.0 - 1;
         Square::from_index(index)
     }
 }

@@ -2,7 +2,7 @@ use std::{fmt, str::FromStr};
 
 use crate::{Board, Color, FenError, Piece, PieceKind, Square, castling::rook_for_symbol};
 
-fn parse_piece(symbol: char) -> Option<Piece> {
+const fn parse_piece(symbol: char) -> Option<Piece> {
     let kind = match symbol.to_ascii_lowercase() {
         'p' => PieceKind::Pawn,
         'n' => PieceKind::Knight,
@@ -12,7 +12,11 @@ fn parse_piece(symbol: char) -> Option<Piece> {
         'k' => PieceKind::King,
         _ => return None,
     };
-    let color = if symbol.is_ascii_uppercase() { Color::White } else { Color::Black };
+    let color = if symbol.is_ascii_uppercase() {
+        Color::White
+    } else {
+        Color::Black
+    };
     Some(Piece::new(color, kind))
 }
 
@@ -25,18 +29,26 @@ fn piece_symbol(piece: Piece) -> char {
         PieceKind::Queen => 'q',
         PieceKind::King => 'k',
     };
-    if piece.color == Color::White { symbol.to_ascii_uppercase() } else { symbol }
+    if piece.color == Color::White {
+        symbol.to_ascii_uppercase()
+    } else {
+        symbol
+    }
 }
 
 fn placement(board: &mut Board, value: &str) -> Result<(), FenError> {
     let ranks: Vec<_> = value.split('/').collect();
-    if ranks.len() != 8 { return Err(FenError::Placement); }
+    if ranks.len() != 8 {
+        return Err(FenError::Placement);
+    }
     for (index, text) in ranks.into_iter().enumerate() {
         let rank = 7 - u8::try_from(index).map_err(|_| FenError::Placement)?;
         let mut file = 0u8;
         for symbol in text.chars() {
             if let Some(skip) = symbol.to_digit(10).filter(|&skip| (1..=8).contains(&skip)) {
-                file = file.checked_add(u8::try_from(skip).map_err(|_| FenError::Placement)?).ok_or(FenError::Placement)?;
+                file = file
+                    .checked_add(u8::try_from(skip).map_err(|_| FenError::Placement)?)
+                    .ok_or(FenError::Placement)?;
             } else {
                 let piece = parse_piece(symbol).ok_or(FenError::Placement)?;
                 let square = Square::new(file, rank).ok_or(FenError::Placement)?;
@@ -46,35 +58,61 @@ fn placement(board: &mut Board, value: &str) -> Result<(), FenError> {
                 board.place(square, piece);
                 file += 1;
             }
-            if file > 8 { return Err(FenError::Placement); }
+            if file > 8 {
+                return Err(FenError::Placement);
+            }
         }
-        if file != 8 { return Err(FenError::Placement); }
+        if file != 8 {
+            return Err(FenError::Placement);
+        }
     }
     for color in [Color::White, Color::Black] {
-        if board.pieces(color, PieceKind::King).len() != 1 { return Err(FenError::Kings(color)); }
+        if board.pieces(color, PieceKind::King).len() != 1 {
+            return Err(FenError::Kings(color));
+        }
     }
     Ok(())
 }
 
 fn castling(board: &mut Board, value: &str) -> Result<(), FenError> {
-    if value == "-" { return Ok(()); }
-    if value.is_empty() { return Err(FenError::Castling); }
+    if value == "-" {
+        return Ok(());
+    }
+    if value.is_empty() {
+        return Err(FenError::Castling);
+    }
     for symbol in value.chars() {
-        let color = if symbol.is_ascii_uppercase() { Color::White } else { Color::Black };
+        let color = if symbol.is_ascii_uppercase() {
+            Color::White
+        } else {
+            Color::Black
+        };
         let king = board.king(color).ok_or(FenError::Castling)?;
-        if king.rank() != color.home_rank() { return Err(FenError::Castling); }
+        if king.rank() != color.home_rank() {
+            return Err(FenError::Castling);
+        }
         let rook = match symbol.to_ascii_lowercase() {
             'k' => rook_for_symbol(board, color, true),
             'q' => rook_for_symbol(board, color, false),
-            'a'..='h' => Square::new(u8::try_from(u32::from(symbol.to_ascii_lowercase())).map_err(|_| FenError::Castling)? - b'a', color.home_rank()),
+            'a'..='h' => Square::new(
+                u8::try_from(u32::from(symbol.to_ascii_lowercase()))
+                    .map_err(|_| FenError::Castling)?
+                    - b'a',
+                color.home_rank(),
+            ),
             _ => None,
-        }.ok_or(FenError::Castling)?;
-        if board.piece_on(rook) != Some(Piece::new(color, PieceKind::Rook)) || rook.file() == king.file() {
+        }
+        .ok_or(FenError::Castling)?;
+        if board.piece_on(rook) != Some(Piece::new(color, PieceKind::Rook))
+            || rook.file() == king.file()
+        {
             return Err(FenError::Castling);
         }
         let side = usize::from(rook.file() > king.file());
         let slot = &mut board.castling.rooks[color.index()][side];
-        if slot.is_some() { return Err(FenError::Castling); }
+        if slot.is_some() {
+            return Err(FenError::Castling);
+        }
         *slot = Some(rook);
     }
     Ok(())
@@ -99,15 +137,22 @@ impl FromStr for Board {
         if *ep != "-" {
             let square: Square = ep.parse().map_err(|_| FenError::EnPassant)?;
             let rank = if board.side == Color::White { 5 } else { 2 };
-            let captured = square.offset(0, -board.side.pawn_step()).and_then(|square| board.piece_on(square));
-            if square.rank() != rank || board.piece_on(square).is_some() || captured != Some(Piece::new(board.side.opposite(), PieceKind::Pawn)) {
+            let captured = square
+                .offset(0, -board.side.pawn_step())
+                .and_then(|square| board.piece_on(square));
+            if square.rank() != rank
+                || board.piece_on(square).is_some()
+                || captured != Some(Piece::new(board.side.opposite(), PieceKind::Pawn))
+            {
                 return Err(FenError::EnPassant);
             }
             board.en_passant = Some(square);
         }
         board.halfmove = halfmove.parse().map_err(|_| FenError::HalfmoveClock)?;
         board.fullmove = fullmove.parse().map_err(|_| FenError::FullmoveNumber)?;
-        if board.fullmove == 0 { return Err(FenError::FullmoveNumber); }
+        if board.fullmove == 0 {
+            return Err(FenError::FullmoveNumber);
+        }
         Ok(board)
     }
 }
@@ -117,16 +162,31 @@ impl fmt::Display for Board {
         for rank in (0..8).rev() {
             let mut empty = 0;
             for file in 0..8 {
-                let Some(square) = Square::new(file, rank) else { return Err(fmt::Error) };
+                let Some(square) = Square::new(file, rank) else {
+                    return Err(fmt::Error);
+                };
                 if let Some(piece) = self.piece_on(square) {
-                    if empty != 0 { write!(formatter, "{empty}")?; empty = 0; }
+                    if empty != 0 {
+                        write!(formatter, "{empty}")?;
+                        empty = 0;
+                    }
                     write!(formatter, "{}", piece_symbol(piece))?;
-                } else { empty += 1; }
+                } else {
+                    empty += 1;
+                }
             }
-            if empty != 0 { write!(formatter, "{empty}")?; }
-            if rank != 0 { formatter.write_str("/")?; }
+            if empty != 0 {
+                write!(formatter, "{empty}")?;
+            }
+            if rank != 0 {
+                formatter.write_str("/")?;
+            }
         }
-        write!(formatter, " {} ", if self.side == Color::White { 'w' } else { 'b' })?;
+        write!(
+            formatter,
+            " {} ",
+            if self.side == Color::White { 'w' } else { 'b' }
+        )?;
         let mut any = false;
         for color in [Color::White, Color::Black] {
             for side in [1, 0] {
@@ -136,13 +196,25 @@ impl fmt::Display for Board {
                         (0, 0) => 'q',
                         _ => char::from(b'a' + rook.file()),
                     };
-                    write!(formatter, "{}", if color == Color::White { symbol.to_ascii_uppercase() } else { symbol })?;
+                    write!(
+                        formatter,
+                        "{}",
+                        if color == Color::White {
+                            symbol.to_ascii_uppercase()
+                        } else {
+                            symbol
+                        }
+                    )?;
                     any = true;
                 }
             }
         }
-        if !any { formatter.write_str("-")?; }
-        let ep = self.en_passant.map_or_else(|| "-".to_owned(), |square| square.to_string());
+        if !any {
+            formatter.write_str("-")?;
+        }
+        let ep = self
+            .en_passant
+            .map_or_else(|| "-".to_owned(), |square| square.to_string());
         write!(formatter, " {ep} {} {}", self.halfmove, self.fullmove)
     }
 }

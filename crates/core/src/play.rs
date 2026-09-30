@@ -1,13 +1,24 @@
+#![expect(
+    clippy::missing_errors_doc,
+    reason = "Failure details use plain prose rather than Markdown sections."
+)]
+
 use crate::{Board, Move, MoveError, MoveKind, Piece, PieceKind, castling::destinations};
 
 impl Board {
-    /// Accepts standard or king-to-rook castling notation according to chess960.
+    /// Invalid notation and moves outside the legal list return distinct errors.
+    /// Castling notation follows the requested standard or Chess960 convention.
     pub fn play_uci(&self, notation: &str, chess960: bool) -> Result<Self, MoveError> {
         if !matches!(notation.len(), 4 | 5) || !notation.is_ascii() {
             return Err(MoveError::InvalidNotation);
         }
-        let chess_move = self.legal_moves().into_iter().find(|chess_move| chess_move.to_uci(chess960) == notation).ok_or(MoveError::IllegalMove)?;
-        self.after_generated_move(chess_move).ok_or(MoveError::IllegalMove)
+        let chess_move = self
+            .legal_moves()
+            .into_iter()
+            .find(|chess_move| chess_move.to_uci(chess960) == notation)
+            .ok_or(MoveError::IllegalMove)?;
+        self.after_generated_move(chess_move)
+            .ok_or(MoveError::IllegalMove)
     }
 
     pub(crate) fn after_generated_move(&self, chess_move: Move) -> Option<Self> {
@@ -44,7 +55,11 @@ impl Board {
                 }
             }
         }
-        child.halfmove = if piece.kind == PieceKind::Pawn || is_capture { 0 } else { self.halfmove.saturating_add(1) };
+        child.halfmove = if piece.kind == PieceKind::Pawn || is_capture {
+            0
+        } else {
+            self.halfmove.saturating_add(1)
+        };
         if self.side == crate::Color::Black {
             child.fullmove = child.fullmove.saturating_add(1);
         }

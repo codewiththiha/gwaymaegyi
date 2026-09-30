@@ -61,17 +61,17 @@ impl Board {
     }
 
     pub(crate) fn king(&self, color: Color) -> Option<Square> {
-        self.pieces(color, PieceKind::King).next()
+        self.pieces(color, PieceKind::King).into_iter().next()
     }
 
-    pub(crate) fn place(&mut self, square: Square, piece: Piece) {
+    pub(crate) const fn place(&mut self, square: Square, piece: Piece) {
         self.remove(square);
         self.mailbox[square.index()] = Some(piece);
         self.roles[piece.kind.index()].0 |= square.bit();
         self.colors[piece.color.index()].0 |= square.bit();
     }
 
-    pub(crate) fn remove(&mut self, square: Square) {
+    pub(crate) const fn remove(&mut self, square: Square) {
         if let Some(piece) = self.mailbox[square.index()].take() {
             self.roles[piece.kind.index()].0 &= !square.bit();
             self.colors[piece.color.index()].0 &= !square.bit();

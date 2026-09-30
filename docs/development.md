@@ -18,6 +18,8 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 Clippy enables all, pedantic, and nursery groups; unwrap/expect and undocumented
 unsafe blocks are denied. Unsafe code is forbidden throughout the workspace.
 Compiler compatibility/style warnings and documentation warnings are also checked.
+Public error documentation uses plain prose; those modules explicitly expect only
+Clippy's Markdown-heading requirement. All warning groups stay enabled.
 
 ## WASM runtime
 

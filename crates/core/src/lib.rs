@@ -12,7 +12,7 @@ mod perft;
 mod play;
 mod types;
 
-pub use bitboard::Bitboard;
+pub use bitboard::{Bitboard, Squares};
 pub use board::{Board, START_FEN};
 pub use chess_move::{Move, MoveKind, Promotion};
 pub use error::{FenError, MoveError};

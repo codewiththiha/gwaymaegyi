@@ -10,7 +10,11 @@ pub fn perft(board: &Board, depth: u8) -> u64 {
     if depth == 1 {
         return u64::try_from(moves.len()).unwrap_or(u64::MAX);
     }
-    moves.into_iter().filter_map(|chess_move| board.after_generated_move(chess_move)).map(|child| perft(&child, depth - 1)).sum()
+    moves
+        .into_iter()
+        .filter_map(|chess_move| board.after_generated_move(chess_move))
+        .map(|child| perft(&child, depth - 1))
+        .sum()
 }
 
 /// Root-level counts make move-generation discrepancies easier to locate.
@@ -19,7 +23,13 @@ pub fn divide(board: &Board, depth: u8) -> Vec<(Move, u64)> {
     if depth == 0 {
         return Vec::new();
     }
-    board.legal_moves().into_iter().filter_map(|chess_move| {
-        board.after_generated_move(chess_move).map(|child| (chess_move, perft(&child, depth - 1)))
-    }).collect()
+    board
+        .legal_moves()
+        .into_iter()
+        .filter_map(|chess_move| {
+            board
+                .after_generated_move(chess_move)
+                .map(|child| (chess_move, perft(&child, depth - 1)))
+        })
+        .collect()
 }

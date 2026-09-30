@@ -2,7 +2,10 @@
 
 mod cli;
 
-use std::{io::{self, Write}, process::ExitCode};
+use std::{
+    io::{self, Write},
+    process::ExitCode,
+};
 
 fn main() -> ExitCode {
     match cli::run(&mut io::stdout().lock()) {
