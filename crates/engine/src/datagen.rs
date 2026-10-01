@@ -89,9 +89,11 @@ pub fn normalize_opening_line(raw: &str) -> Result<Option<String>, DatagenError>
     if trimmed.is_empty() {
         return Ok(None);
     }
-    let board: Board = trimmed.parse().map_err(|error: gwaymaegyi_core::FenError| {
-        DatagenError::InvalidOpening(error.to_string())
-    })?;
+    let board: Board = trimmed
+        .parse()
+        .map_err(|error: gwaymaegyi_core::FenError| {
+            DatagenError::InvalidOpening(error.to_string())
+        })?;
     Ok(Some(board.to_string()))
 }
 
@@ -178,9 +180,9 @@ pub fn generate_training_data(
             let saved_ref = &total_saved;
             handles.push(scope.spawn(move || {
                 let mut engine = Engine::new().map_err(DatagenError::Engine)?;
-                let mut base = Options::default()
-                    .with_mode(Mode::Aggressive)
-                    .with_chess960(config.chess960);
+                let mut base = Options::default();
+                base.set_mode(Mode::Aggressive);
+                base.set_chess960(config.chess960);
                 base.set_hash_mib(1).map_err(DatagenError::Engine)?;
                 engine.configure(base).map_err(DatagenError::Engine)?;
 

@@ -116,8 +116,8 @@ impl SharedTable {
 
     pub(super) fn probe(&self, key: u64) -> Option<Entry> {
         let (shard_idx, slot_idx) = self.indices(key);
-        let entries = self.shards.get(shard_idx)?.lock().ok()?;
-        let entry = entries.get(slot_idx).copied().flatten()?;
+        let shard = self.shards.get(shard_idx)?;
+        let entry = shard.lock().ok()?.get(slot_idx).copied().flatten()?;
         (entry.key == key).then_some(entry)
     }
 

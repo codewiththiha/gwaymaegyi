@@ -214,9 +214,7 @@ fn run_single_worker(
     engine.set_tablebase(request.tablebase.clone());
     let mut worker_options = request.options;
     if worker_id > 0 {
-        worker_options
-            .set_hash_mib(1)
-            .map_err(BatchError::Engine)?;
+        worker_options.set_hash_mib(1).map_err(BatchError::Engine)?;
     }
     engine
         .configure(worker_options)

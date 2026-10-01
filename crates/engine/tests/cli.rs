@@ -143,4 +143,3 @@ fn datagen_and_parallel_analysis_produce_valid_outputs() -> Result<(), Box<dyn E
     assert!(report.nodes > 0);
     Ok(())
 }
-

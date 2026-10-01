@@ -463,11 +463,14 @@ mod tests {
             game.play_uci(uci, false)?;
         }
         let balance = game.board().material(game.board().side_to_move())
-            - game.board().material(game.board().side_to_move().opposite());
+            - game
+                .board()
+                .material(game.board().side_to_move().opposite());
         let detected = Options::detect_sacrifice(game.material_history(), balance);
         assert!(detected < 0);
 
-        let options = Options::default().with_mode(crate::Mode::Aggressive);
+        let mut options = Options::default();
+        options.set_mode(crate::Mode::Aggressive);
         let mut task = Task::new(&game, options, SearchLimits::default(), &[], 0, None)?;
         task.update_phase_model(-50);
         assert_eq!(task.active_model, gwaymaegyi_eval::Model::Endgame);

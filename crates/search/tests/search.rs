@@ -552,4 +552,3 @@ fn shared_table_coordinates_multi_worker_search_entries() -> Result<(), Box<dyn 
     shared.clear();
     Ok(())
 }
-

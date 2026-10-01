@@ -44,4 +44,3 @@ fn bench_and_printparams_emit_deterministic_protocol_lines() -> Result<(), Box<d
     assert!(text.contains("info string bench positions 2 depth 1 nodes "));
     Ok(())
 }
-
