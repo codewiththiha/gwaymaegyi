@@ -50,7 +50,7 @@ impl Model {
         weights(&self.data()[offset..offset + HIDDEN * 2])
     }
 
-    pub(super) fn output_bias(self) -> i16 {
+    pub(super) const fn output_bias(self) -> i16 {
         let data = self.data();
         i16::from_le_bytes([data[NET_BYTES - 2], data[NET_BYTES - 1]])
     }

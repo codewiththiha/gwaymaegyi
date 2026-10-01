@@ -77,7 +77,7 @@ impl Accumulator {
         };
         let raw = flatten(us, true) + flatten(them, false);
         let score = (raw + i64::from(self.model.output_bias()) * 255) * 400 / (255 * 255 * 64);
-        i32::try_from(score).unwrap_or_else(|_| if score < 0 { i32::MIN } else { i32::MAX })
+        i32::try_from(score).unwrap_or(if score < 0 { i32::MIN } else { i32::MAX })
     }
 
     fn add(&mut self, piece: gwaymaegyi_core::Piece, square: gwaymaegyi_core::Square) {
