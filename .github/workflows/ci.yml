@@ -49,7 +49,7 @@ jobs:
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
       - name: Check JavaScript syntax
         run: |
-          for file in web/*.mjs tests/*.cjs; do node --check "$file"; done
+          for file in web/*.mjs tests/*.cjs scripts/*.cjs; do node --check "$file"; done
       - name: Check default Rust formatting
         run: |
           cargo fmt --all
