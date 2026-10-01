@@ -7,13 +7,14 @@ use std::{error::Error, io::Write};
 
 use gwaymaegyi_core::{Board, START_FEN, divide};
 
-const HELP: &str = "gwaymaegyi 0.1.0 — portable chess-rules foundation\n\
+const HELP: &str = "gwaymaegyi 0.1.0 — portable chess engine\n\
 Usage:\n\
+  gwaymaegyi [uci]\n\
   gwaymaegyi perft <depth> [FEN]\n\
   gwaymaegyi moves [FEN]\n\
   gwaymaegyi fen <FEN>\n\
   gwaymaegyi --version\n\
-Castling uses standard UCI notation; search/UCI sessions are not implemented yet.\n";
+No arguments starts a UCI session. Elo presets are uncalibrated.\n";
 
 /// Reports invalid commands, position errors, or output failures to the caller.
 pub fn run(

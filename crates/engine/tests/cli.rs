@@ -9,7 +9,8 @@ fn output(args: &[&str]) -> Result<String, Box<dyn Error>> {
 #[test]
 fn help_is_honest_about_search_support() -> Result<(), Box<dyn Error>> {
     let text = output(&[])?;
-    assert!(text.contains("search/UCI sessions are not implemented yet"));
+    assert!(text.contains("No arguments starts a UCI session"));
+    assert!(text.contains("uncalibrated"));
     Ok(())
 }
 

@@ -93,12 +93,18 @@ jobs:
         run: |
           test "$(target/release/gwaymaegyi --version)" = 'gwaymaegyi 0.1.0'
           target/release/gwaymaegyi perft 3 | grep '^8902 nodes$'
+          python3 tests/uci_smoke.py target/release/gwaymaegyi
+      - name: Stage licensed native package
+        run: |
+          mkdir -p pkg/native
+          cp target/release/gwaymaegyi LICENSE pkg/native/
+          cp assets/models/LICENSE pkg/native/MODEL-LICENSE
       - name: Attach native executable
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: gwaymaegyi-linux-${{ github.sha }}
-          path: target/release/gwaymaegyi
+          path: pkg/native/
           retention-days: 7
 
   wasm:
@@ -156,3 +162,11 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
       - run: cargo test --locked --workspace --all-targets --all-features
+
+      - name: Build and exercise native protocol
+        shell: bash
+        run: |
+          cargo build --locked -p gwaymaegyi
+          binary=target/debug/gwaymaegyi
+          if [[ "$RUNNER_OS" == Windows ]]; then binary="$binary.exe"; fi
+          python tests/uci_smoke.py "$binary"

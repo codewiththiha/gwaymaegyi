@@ -9,6 +9,7 @@ repository.workspace = true
 
 [dependencies]
 gwaymaegyi-core.workspace = true
+gwaymaegyi-search.workspace = true
 
 [lints]
 workspace = true

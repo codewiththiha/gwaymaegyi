@@ -7,7 +7,14 @@ use std::{
 };
 
 fn main() -> ExitCode {
-    match gwaymaegyi::run(env::args().skip(1), &mut io::stdout().lock()) {
+    let args: Vec<_> = env::args().skip(1).collect();
+    let mut output = io::stdout().lock();
+    let result = if args.is_empty() || args == ["uci"] {
+        gwaymaegyi::run_uci(io::BufReader::new(io::stdin()), &mut output)
+    } else {
+        gwaymaegyi::run(args.into_iter(), &mut output)
+    };
+    match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             let _ = writeln!(io::stderr().lock(), "gwaymaegyi: {error}");

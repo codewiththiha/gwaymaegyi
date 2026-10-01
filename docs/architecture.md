@@ -17,8 +17,9 @@ king-safety filtering. `castling.rs` handles rook-origin rights and overlapping
 Chess960 destinations. Castling moves target the rook internally; adapters choose
 the external UCI convention.
 
-The native command library receives arguments and an output writer explicitly;
-only its binary entry point reads process globals.
+The native command library receives arguments and an output writer explicitly.
+UCI additionally receives an input stream and owns a bounded-channel actor; only
+the binary entry point reads process globals.
 
 Positions are copyable values. Externally supplied moves cannot call the internal
 state-transition helper. All state is owned; there are no mutable global registries.
@@ -29,11 +30,11 @@ not a claim of optimized engine throughput.
 
 The evaluation crate owns immutable weights and per-worker accumulators. Its model
 bytes are borrowed, decoded safely, and never duplicated into a heap-sized weight
-table. Search will own
-history, its indexed stack, transposition access, and typed search limits. The
+table. Search owns history, its typed continuation stack, transposition access,
+and validated limits. Evaluation context is part of cache identity. The
 rules core must not prefetch or access search state.
 
-Native orchestration will own timing and workers; browser orchestration will use
+Native orchestration owns timing and workers; browser orchestration uses
 worker messages and cooperative stop requests. A portable search entry point must
 not depend on native threads. Shared tables and worker-local state stay distinct.
 Do not add browser threading or architecture-specific intrinsics as unconditional

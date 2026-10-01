@@ -19,6 +19,7 @@ name = "gwaymaegyi"
 version = "0.1.0"
 dependencies = [
  "gwaymaegyi-core",
+ "gwaymaegyi-search",
 ]
 
 [[package]]

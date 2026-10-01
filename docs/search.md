@@ -24,14 +24,18 @@ while engine.searching() {
 Configuration/position changes discard stale search results. Invalid inputs are
 transactional and leave the existing game/continuation intact. `stop()` retains
 completed analysis and a legal fallback, including when called before depth one.
-Terminal games have no fallback move. Quiescence searches every legal evasion
+Automatic outcomes are terminal; optional draw claims do not end a root search.
+The game API rejects moves after automatic outcomes, while Board transitions
+remain available for position-only analysis. Terminal games have no fallback move. Quiescence searches every legal evasion
 when checked; it does not arbitrarily stop after a small number of moves.
 
 Search includes iterative deepening, alpha-beta/PVS, full check evasions,
 quiescence, mate-distance bounds, late-move reductions with re-search, conservative
 null-move/reverse-futility pruning, quiet history/killers, and a bounded hash table.
-Hash identity includes halfmove and reversible-history context so cached results
-do not cross incompatible draw histories. Synthetic null paths do not claim game
+Hash identity includes halfmove, reversible-history, and root evaluation context
+so cached results
+do not cross incompatible draw histories or root-relative style policies. Models
+refresh when material changes the neural evaluation phase. Synthetic null paths do not claim game
 repetition or populate the real-position cache. MultiPV searches distinct root
 moves and publishes only completed sets of variations.
 
