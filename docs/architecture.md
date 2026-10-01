@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | `crates/core` | Domain types, position state, FEN, attacks, legal moves, perft | Clocks, threads, filesystem, platform dispatch |
 | `crates/eval` | Immutable model bytes, incremental accumulators | Search, clocks, platform intrinsics |
+| `crates/search` | Game orchestration, continuations, cache, controls | OS clocks, I/O, threads, protocol text |
 | `crates/engine` | Process arguments, stdout/stderr, native exit codes | Chess rules |
 | `crates/wasm` | Browser-facing conversion and errors | A second board implementation, native assumptions |
 

@@ -1,0 +1,15 @@
+[package]
+name = "gwaymaegyi-search"
+description = "Safe cooperative chess search and playing controls"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+gwaymaegyi-core.workspace = true
+gwaymaegyi-eval.workspace = true
+
+[lints]
+workspace = true

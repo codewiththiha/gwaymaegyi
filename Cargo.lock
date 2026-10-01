@@ -33,6 +33,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "gwaymaegyi-search"
+version = "0.1.0"
+dependencies = [
+ "gwaymaegyi-core",
+ "gwaymaegyi-eval",
+]
+
+[[package]]
 name = "gwaymaegyi-wasm"
 version = "0.1.0"
 dependencies = [

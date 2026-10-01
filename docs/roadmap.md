@@ -17,6 +17,6 @@ Do not turn this list into empty placeholder crates.
 
 The rules foundation gate is verified on Linux and in the compiled WASM module.
 See [verification](verification.md) for the source revision and checks.
-The position identity and game-state gate is also verified. The next acceptance
-gate is evaluation, followed by single-worker search. Search is not yet available;
-generated binaries must not imply otherwise.
+Position identity, game state, and scalar evaluation are verified. Cooperative
+single-worker search is implemented; its acceptance checks are now running.
+Protocol and compiled WASM search adapters follow that gate.

@@ -36,3 +36,13 @@ Identity distinguishes rook origins, excludes counters, and includes only legal
 en passant availability. Tests cover claims, automatic repetition/clock draws,
 checkmate precedence, and insufficient-material boundaries. All 21 native tests
 and the existing compiled WASM checks pass.
+
+## Neural evaluation
+
+Verified revision: `061bd1236b2b51fa09760703fbacac404d0daa55`.
+[CI evidence](https://github.com/codewiththiha/gwaymaegyi/actions/runs/36799470740).
+All 342 scalar score fixtures pass, spanning 57 positions, three models, and
+both perspectives. Incremental refresh comparisons cover captures, en passant,
+promotions, orthodox/overlapping castling, and long deterministic play.
+The native suite now has 24 tests. This run verifies the evaluation on native
+Rust; compiled WASM evaluation/search checks are added with their adapter.
