@@ -19,7 +19,8 @@ impl Color {
         }
     }
 
-    pub(crate) const fn index(self) -> usize {
+    #[must_use]
+    pub const fn index(self) -> usize {
         self as usize
     }
 
@@ -51,7 +52,8 @@ pub enum PieceKind {
 }
 
 impl PieceKind {
-    pub(crate) const fn index(self) -> usize {
+    #[must_use]
+    pub const fn index(self) -> usize {
         self as usize
     }
 }

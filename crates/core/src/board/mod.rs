@@ -9,8 +9,10 @@ mod movegen;
 mod perft;
 mod play;
 mod query;
+mod see;
 
 use crate::{Bitboard, Color, Move, Piece, PieceKind, Square};
+
 use castling::CastlingRights;
 
 pub use perft::{divide, perft};
@@ -59,6 +61,11 @@ impl Board {
     #[must_use]
     pub const fn pieces(&self, color: Color, kind: PieceKind) -> Bitboard {
         Bitboard(self.colors[color.index()].0 & self.roles[kind.index()].0)
+    }
+
+    #[must_use]
+    pub const fn side_pieces(&self, color: Color) -> Bitboard {
+        Bitboard(self.colors[color.index()].0)
     }
 
     #[must_use]
