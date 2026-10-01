@@ -113,33 +113,7 @@ impl Worker {
     }
     fn command(&mut self, command: Command) -> bool {
         match command {
-            Command::Uci => {
-                let mut lines = IDENTIFICATION.trim_end_matches("uciok").to_owned();
-                for behavior in gwaymaegyi_search::Behavior::ALL {
-                    if writeln!(
-                        lines,
-                        "option name Behavior {} type check default true",
-                        behavior.name()
-                    )
-                    .is_err()
-                    {
-                        return false;
-                    }
-                }
-                for spec in Parameter::SPECS {
-                    if writeln!(
-                        lines,
-                        "option name {} type spin default {} min {} max {}",
-                        spec.name, spec.default, spec.min, spec.max
-                    )
-                    .is_err()
-                    {
-                        return false;
-                    }
-                }
-                lines.push_str("uciok");
-                return self.send(lines);
-            }
+            Command::Uci => return self.send_uci_handshake(),
             Command::Ready => return self.send("readyok".into()),
             Command::NewGame => {
                 let result = self.engine.new_game();
@@ -149,7 +123,7 @@ impl Worker {
                 if let Some(shared) = &self.shared_table {
                     shared.clear();
                 }
-                self.last_fen = gwaymaegyi_core::START_FEN.to_owned();
+                gwaymaegyi_core::START_FEN.clone_into(&mut self.last_fen);
                 self.last_moves.clear();
                 self.active = None;
             }
@@ -181,39 +155,8 @@ impl Worker {
                     return self.rejected(&error);
                 }
             }
-            Command::Bench { depth, count } => {
-                self.finish();
-                let started = Instant::now();
-                let report =
-                    match gwaymaegyi_search::run_benchmark(depth, count, self.engine.options()) {
-                        Ok(report) => report,
-                        Err(error) => return self.rejected(&error.to_string()),
-                    };
-                let raw_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-                let elapsed_ms = raw_ms.max(1);
-                let nps = report.total_nodes.saturating_mul(1_000) / elapsed_ms;
-                let msg = format!(
-                    "info string bench positions {} depth {} nodes {} nps {nps}",
-                    report.positions, report.depth, report.total_nodes
-                );
-                return self.send(msg);
-            }
-            Command::PrintParams => {
-                let mut lines = String::new();
-                for spec in Parameter::SPECS {
-                    let step = ((spec.max - spec.min) / 20).max(1);
-                    if writeln!(
-                        lines,
-                        "{}, int, {}, {}, {}, {step}, 0.002",
-                        spec.name, spec.default, spec.min, spec.max
-                    )
-                    .is_err()
-                    {
-                        return false;
-                    }
-                }
-                return self.send(lines.trim_end().to_owned());
-            }
+            Command::Bench { depth, count } => return self.run_bench(depth, count),
+            Command::PrintParams => return self.print_params(),
             Command::Stop => self.finish(),
             Command::PonderHit => {
                 if let Some(active) = self.active.as_mut() {
@@ -252,6 +195,68 @@ impl Worker {
             Command::Ignore => {}
         }
         true
+    }
+
+    fn send_uci_handshake(&self) -> bool {
+        let mut lines = IDENTIFICATION.trim_end_matches("uciok").to_owned();
+        for behavior in gwaymaegyi_search::Behavior::ALL {
+            if writeln!(
+                lines,
+                "option name Behavior {} type check default true",
+                behavior.name()
+            )
+            .is_err()
+            {
+                return false;
+            }
+        }
+        for spec in Parameter::SPECS {
+            if writeln!(
+                lines,
+                "option name {} type spin default {} min {} max {}",
+                spec.name, spec.default, spec.min, spec.max
+            )
+            .is_err()
+            {
+                return false;
+            }
+        }
+        lines.push_str("uciok");
+        self.send(lines)
+    }
+
+    fn run_bench(&mut self, depth: u8, count: usize) -> bool {
+        self.finish();
+        let started = Instant::now();
+        let report = match gwaymaegyi_search::run_benchmark(depth, count, self.engine.options()) {
+            Ok(report) => report,
+            Err(error) => return self.rejected(&error.to_string()),
+        };
+        let raw_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        let elapsed_ms = raw_ms.max(1);
+        let nps = report.total_nodes.saturating_mul(1_000) / elapsed_ms;
+        let msg = format!(
+            "info string bench positions {} depth {} nodes {} nps {nps}",
+            report.positions, report.depth, report.total_nodes
+        );
+        self.send(msg)
+    }
+
+    fn print_params(&self) -> bool {
+        let mut lines = String::new();
+        for spec in Parameter::SPECS {
+            let step = ((spec.max - spec.min) / 20).max(1);
+            if writeln!(
+                lines,
+                "{}, int, {}, {}, {}, {step}, 0.002",
+                spec.name, spec.default, spec.min, spec.max
+            )
+            .is_err()
+            {
+                return false;
+            }
+        }
+        self.send(lines.trim_end().to_owned())
     }
     fn set_tablebase_path(&mut self, path: &str) -> bool {
         let path = path.trim();
