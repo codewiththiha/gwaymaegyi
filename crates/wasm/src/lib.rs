@@ -2,14 +2,14 @@
 
 #![expect(
     clippy::missing_errors_doc,
-    reason = "Failure details mod session;
+    reason = "Failure details use plain prose rather than Markdown sections."
+)]
+
+mod session;
 mod snapshot;
 
 pub use session::Engine;
 pub use snapshot::EngineReport;
-
-use plain prose rather than Markdown sections."
-)]
 
 use gwaymaegyi_core::Board;
 use wasm_bindgen::prelude::*;

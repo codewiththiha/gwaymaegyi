@@ -60,6 +60,10 @@ impl Engine {
     pub fn reset(&mut self) -> Result<(), JsError> {
         self.inner.set_position(START_FEN, &[]).map_err(js_error)
     }
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "WASM transfers owned string arrays across its ABI."
+    )]
     pub fn set_position(&mut self, fen: &str, moves: Vec<String>) -> Result<(), JsError> {
         let borrowed: Vec<_> = moves.iter().map(String::as_str).collect();
         self.inner.set_position(fen, &borrowed).map_err(js_error)
@@ -73,6 +77,10 @@ impl Engine {
             .map_err(js_error)?;
         Ok(self.report())
     }
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "WASM transfers owned string arrays across its ABI."
+    )]
     pub fn start_moves(
         &mut self,
         depth: f64,
@@ -95,48 +103,75 @@ impl Engine {
         self.inner.stop();
         self.report()
     }
+    #[must_use]
     pub fn report(&self) -> EngineReport {
         EngineReport::new(self.inner.report(), self.inner.options().chess960())
     }
+    #[must_use]
     pub fn evaluate(&self) -> i32 {
         self.inner.evaluate()
     }
 
+    #[must_use]
     #[wasm_bindgen(getter)]
     pub fn mode(&self) -> String {
         self.inner.options().mode().as_str().into()
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "WASM exports cannot be const functions."
+    )]
     pub fn elo(&self) -> u16 {
         match self.inner.options().strength() {
             Strength::Full => 0,
             Strength::Approximate(elo) => elo,
         }
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "WASM exports cannot be const functions."
+    )]
     pub fn hash_mib(&self) -> u16 {
         self.inner.options().hash_mib()
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "WASM exports cannot be const functions."
+    )]
     pub fn multi_pv(&self) -> u8 {
         self.inner.options().multi_pv()
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "WASM exports cannot be const functions."
+    )]
     pub fn chess960(&self) -> bool {
         self.inner.options().chess960()
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
     pub fn seed(&self) -> String {
         self.inner.options().seed().to_string()
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
     pub fn fen(&self) -> String {
         self.inner.game().board().to_string()
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
     pub fn searching(&self) -> bool {
         self.inner.searching()
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
     pub fn legal_moves(&self) -> Vec<String> {
         self.inner
@@ -147,6 +182,7 @@ impl Engine {
             .map(|chess_move| chess_move.to_uci(self.inner.options().chess960()))
             .collect()
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
     pub fn claims(&self) -> Vec<String> {
         self.inner
@@ -162,6 +198,7 @@ impl Engine {
             })
             .collect()
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
     pub fn outcome(&self) -> String {
         match self.inner.outcome() {

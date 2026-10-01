@@ -15,6 +15,7 @@ impl EngineReport {
 }
 #[wasm_bindgen]
 impl EngineReport {
+    #[must_use]
     #[wasm_bindgen(getter)]
     pub fn status(&self) -> String {
         match self.report.status {
@@ -29,36 +30,60 @@ impl EngineReport {
         }
         .into()
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "WASM exports cannot be const functions."
+    )]
     pub fn finished(&self) -> bool {
         matches!(self.report.status, SearchStatus::Finished(_))
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "WASM exports cannot be const functions."
+    )]
     pub fn depth(&self) -> u8 {
         self.report.depth
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "WASM exports cannot be const functions."
+    )]
     pub fn selective_depth(&self) -> u8 {
         self.report.selective_depth
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
     pub fn nodes(&self) -> String {
         self.report.nodes.to_string()
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
     pub fn best_move(&self) -> Option<String> {
         self.report
             .best_move
             .map(|chess_move| chess_move.to_uci(self.chess960))
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "WASM exports cannot be const functions."
+    )]
     pub fn score_cp(&self) -> Option<i32> {
         self.report.score_cp
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
     pub fn mate(&self) -> Option<i32> {
         self.report.mate_in()
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
     pub fn pv(&self) -> Vec<String> {
         self.report
@@ -75,6 +100,7 @@ impl EngineReport {
                 },
             )
     }
+    #[must_use]
     #[wasm_bindgen(getter)]
     pub fn variations_json(&self) -> String {
         let lines = self

@@ -6,6 +6,8 @@ const {pathToFileURL} = require('node:url');
 
 (async () => {
   const {copyReport} = await import(pathToFileURL(path.resolve('web/worker-runtime.mjs')));
+  assert.equal(typeof wasm.Engine, "function");
+  assert.equal(typeof wasm.EngineReport, "function");
   const capabilities = JSON.parse(wasm.capabilities_json());
   assert.deepEqual(capabilities.modes, ['balanced', 'aggressive', 'human-like', 'analysis']);
   assert.equal(capabilities.eloCalibrated, false);
