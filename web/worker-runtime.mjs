@@ -73,6 +73,14 @@ export function createRuntime(factory, post, hooks = {}) {
           post({id, type: 'ack', state: state()});
           break;
         }
+        case 'behavior':
+          if (typeof message.enabled !== 'boolean') throw new Error('behavior enabled must be boolean');
+          engine.set_behavior(text(message.name,64,'behavior'),message.enabled);
+          replace();post({id,type:'ack',tuning:JSON.parse(engine.tuning_json())});break;
+        case 'parameter':
+          if (!Number.isSafeInteger(message.value)) throw new Error('parameter value must be an integer');
+          engine.set_parameter(text(message.name,64,'parameter'),message.value);
+          replace();post({id,type:'ack',tuning:JSON.parse(engine.tuning_json())});break;
         case 'position':
           engine.set_position(text(message.fen, 256, 'FEN'), moves(message.moves ?? []));
           replace(); post({id, type: 'ack', state: state()}); break;

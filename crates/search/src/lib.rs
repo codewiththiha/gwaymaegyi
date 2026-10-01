@@ -5,6 +5,7 @@ mod engine;
 mod error;
 mod report;
 mod strength;
+mod tuning;
 
 pub use config::{Mode, Options, SearchLimits};
 pub use engine::Engine;
@@ -17,3 +18,5 @@ const MAX_PLY: u8 = 96;
 const MATE: i32 = 30_000;
 const MATE_THRESHOLD: i32 = MATE - MAX_PLY as i32;
 const INFINITY: i32 = 31_000;
+
+pub use tuning::{Behavior, Parameter, ParameterSpec, SearchTuning};

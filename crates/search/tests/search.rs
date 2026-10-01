@@ -299,3 +299,44 @@ fn limited_strength_remains_in_force_when_compute_caps_increase() -> Result<(), 
     );
     Ok(())
 }
+
+#[test]
+fn behavior_and_parameters_validate_before_committing() -> Result<(), Box<dyn Error>> {
+    use gwaymaegyi_search::{Behavior, Parameter, SearchTuning};
+    let mut tuning = SearchTuning::default();
+    let before = tuning;
+    assert!(tuning.set(Parameter::NullDepthDiv, 0).is_err());
+    assert_eq!(tuning, before);
+    for spec in Parameter::SPECS {
+        tuning.set(spec.parameter, spec.default)?;
+    }
+    assert!(Parameter::parse("unknown").is_err());
+    assert!(Behavior::parse("unknown").is_err());
+    tuning.set_behavior(Behavior::NullMove, false);
+    assert!(!tuning.enabled(Behavior::NullMove));
+    let mut engine = Engine::new()?;
+    let mut options = engine.options();
+    options.set_tuning(tuning);
+    engine.configure(options)?;
+    assert_eq!(engine.options().tuning(), tuning);
+    Ok(())
+}
+
+#[test]
+fn aspiration_retries_remain_quantum_invariant() -> Result<(), Box<dyn Error>> {
+    let mut a = Engine::new()?;
+    let mut b = Engine::new()?;
+    a.start(SearchLimits {
+        depth: 5,
+        nodes: 100_000,
+    })?;
+    b.start(SearchLimits {
+        depth: 5,
+        nodes: 100_000,
+    })?;
+    let first = finish(&mut a, 1)?;
+    let second = finish(&mut b, 512)?;
+    assert_eq!(first, second);
+    assert_eq!(first.depth, 5);
+    Ok(())
+}

@@ -7,10 +7,11 @@ use crate::engine::{
 mod advance;
 mod finish;
 mod scoring;
+mod window;
+use window::Window;
 
 use crate::{
-    Completion, EngineError, INFINITY, Options, PrincipalVariation, SearchLimits, SearchReport,
-    SearchStatus,
+    Completion, EngineError, Options, PrincipalVariation, SearchLimits, SearchReport, SearchStatus,
 };
 use gwaymaegyi_core::{Board, Game, Move, Outcome};
 use gwaymaegyi_eval::Accumulator;
@@ -29,6 +30,7 @@ pub(super) struct Task {
     pub root: Board,
     pub root_moves: Vec<Move>,
     scope: u64,
+    window: Option<Window>,
 }
 
 impl Task {
@@ -77,6 +79,7 @@ impl Task {
             excluded: Vec::new(),
             root,
             root_moves,
+            window: None,
             scope: root.key().full().rotate_left(33)
                 ^ (options.model(&root) as u64 + 1).wrapping_mul(0xd6e8_feb8_6659_fd93),
         })
@@ -155,12 +158,29 @@ impl Task {
             .position_history()
             .iter()
             .fold(0_u64, |sum, key| sum.wrapping_add(key.rotate_left(7)));
+        let tuning = self.options.tuning();
+        let guess = if tuning.enabled(crate::Behavior::Aspiration)
+            && i32::from(self.iteration) >= tuning.get(crate::Parameter::AspirationDepth)
+        {
+            self.report
+                .variations
+                .get(self.lines.len())
+                .map(|line| line.score_cp)
+        } else {
+            None
+        };
+        let window = self
+            .window
+            .get_or_insert_with(|| {
+                Window::new(guess, tuning.get(crate::Parameter::AspirationWindow))
+            })
+            .bounds;
         self.frames.push(Frame::new(
             self.root,
             Accumulator::new(&self.root, self.options.model(&self.root)),
             i16::from(self.iteration),
             0,
-            [-INFINITY, INFINITY],
+            window,
             true,
             false,
             context,

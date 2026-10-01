@@ -5,7 +5,7 @@
     reason = "Validation failures are documented in plain prose."
 )]
 
-use crate::{EngineError, MAX_DEPTH, SkillLevel, Strength};
+use crate::{EngineError, MAX_DEPTH, SearchTuning, SkillLevel, Strength};
 use std::str::FromStr;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -52,6 +52,7 @@ pub struct Options {
     multi_pv: u8,
     chess960: bool,
     seed: u64,
+    tuning: SearchTuning,
 }
 
 impl Default for Options {
@@ -63,6 +64,7 @@ impl Default for Options {
             multi_pv: 1,
             chess960: false,
             seed: 19,
+            tuning: SearchTuning::default(),
         }
     }
 }
@@ -108,6 +110,14 @@ impl Options {
 
     pub const fn set_skill_level(&mut self, level: SkillLevel) {
         self.strength = level.strength();
+    }
+
+    #[must_use]
+    pub const fn tuning(self) -> SearchTuning {
+        self.tuning
+    }
+    pub const fn set_tuning(&mut self, tuning: SearchTuning) {
+        self.tuning = tuning;
     }
 
     /// Zero selects full strength; other supported values select uncalibrated presets.

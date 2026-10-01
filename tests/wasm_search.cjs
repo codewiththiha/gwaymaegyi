@@ -17,6 +17,9 @@ const {pathToFileURL} = require('node:url');
   const nominal = [500,800,1000,1200,1300,1400,1500,1600,1700,1800,1900,2000,2100,2200,2300,2400,2500,2650,2800,3000];
   assert.deepEqual(capabilities.skillLevels, nominal.map((elo,index) => ({level:index+1,elo})).concat({level:21,elo:0}));
   assert.equal(capabilities.liveLimits, true);
+  const controls=JSON.parse(wasm.search_controls_json());
+  assert.ok(controls.behaviors.includes('aspiration'));
+  assert.equal(controls.parameters.length,15);
   let checks = 0;
   for (const line of fs.readFileSync('crates/eval/tests/scores.txt', 'utf8').trim().split('\n')) {
     const fields = line.trim().split(/\s+/);
@@ -74,6 +77,13 @@ const {pathToFileURL} = require('node:url');
       requested:{depth:64,nodes:'18446744073709551615'},effective:{depth:1,nodes:'256'}
     });
     first.stop().free(); first.set_skill_level(21);
+    first.set_behavior('null-move',false);
+    first.set_parameter('AspStartWindow',30);
+    assert.equal(JSON.parse(first.tuning_json()).parameters.AspStartWindow,30);
+    assert.equal(JSON.parse(first.tuning_json()).behaviors['null-move'],false);
+    assert.throws(()=>first.set_parameter('NMPDepthDiv',0));
+    assert.throws(()=>first.set_behavior('unknown',false));
+    first.set_parameter('AspStartWindow',20); first.set_behavior('null-move',true);
     first.reset(); first.start(64, '1000000').free(); first.step(17).free();
     const before = copyReport(first.report());
     for (const bad of [0, -1, 0.5, NaN, Infinity, 65537, 4294967296]) assert.throws(() => first.step(bad));

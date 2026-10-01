@@ -104,6 +104,44 @@ impl Engine {
         self.inner.configure(options).map_err(js_error)
     }
 
+    pub fn set_behavior(&mut self, name: &str, enabled: bool) -> Result<(), JsError> {
+        let mut options = self.inner.options();
+        let mut tuning = options.tuning();
+        tuning.set_behavior(
+            gwaymaegyi_search::Behavior::parse(name).map_err(js_error)?,
+            enabled,
+        );
+        options.set_tuning(tuning);
+        self.inner.configure(options).map_err(js_error)
+    }
+    pub fn set_parameter(&mut self, name: &str, value: f64) -> Result<(), JsError> {
+        let mut options = self.inner.options();
+        let mut tuning = options.tuning();
+        tuning
+            .set(
+                gwaymaegyi_search::Parameter::parse(name).map_err(js_error)?,
+                input::integer(value)?,
+            )
+            .map_err(js_error)?;
+        options.set_tuning(tuning);
+        self.inner.configure(options).map_err(js_error)
+    }
+    #[must_use]
+    pub fn tuning_json(&self) -> String {
+        let tuning = self.inner.options().tuning();
+        let behaviors = gwaymaegyi_search::Behavior::ALL
+            .into_iter()
+            .map(|item| format!("\"{}\":{}", item.name(), tuning.enabled(item)))
+            .collect::<Vec<_>>()
+            .join(",");
+        let parameters = gwaymaegyi_search::Parameter::SPECS
+            .into_iter()
+            .map(|spec| format!("\"{}\":{}", spec.name, tuning.get(spec.parameter)))
+            .collect::<Vec<_>>()
+            .join(",");
+        format!("{{\"behaviors\":{{{behaviors}}},\"parameters\":{{{parameters}}}}}")
+    }
+
     pub fn reset(&mut self) -> Result<(), JsError> {
         self.inner.set_position(START_FEN, &[]).map_err(js_error)
     }

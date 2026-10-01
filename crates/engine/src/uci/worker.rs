@@ -9,6 +9,7 @@ use super::{
 };
 use gwaymaegyi_core::START_FEN;
 use gwaymaegyi_search::Engine;
+use std::fmt::Write as _;
 use std::{
     sync::mpsc::{Receiver, SyncSender},
     time::{Duration, Instant},
@@ -74,7 +75,33 @@ impl Worker {
     }
     fn command(&mut self, command: Command) -> bool {
         match command {
-            Command::Uci => return self.send(IDENTIFICATION.into()),
+            Command::Uci => {
+                let mut lines = IDENTIFICATION.trim_end_matches("uciok").to_owned();
+                for behavior in gwaymaegyi_search::Behavior::ALL {
+                    if writeln!(
+                        lines,
+                        "option name Behavior {} type check default true",
+                        behavior.name()
+                    )
+                    .is_err()
+                    {
+                        return false;
+                    }
+                }
+                for spec in gwaymaegyi_search::Parameter::SPECS {
+                    if writeln!(
+                        lines,
+                        "option name {} type spin default {} min {} max {}",
+                        spec.name, spec.default, spec.min, spec.max
+                    )
+                    .is_err()
+                    {
+                        return false;
+                    }
+                }
+                lines.push_str("uciok");
+                return self.send(lines);
+            }
             Command::Ready => return self.send("readyok".into()),
             Command::NewGame => {
                 let result = self.engine.set_position(START_FEN, &[]);

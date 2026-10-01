@@ -37,11 +37,14 @@ impl History {
         ply: u8,
         depth: i16,
         good: bool,
+        tuning: crate::SearchTuning,
     ) {
         if board.is_capture(chess_move) {
             return;
         }
-        let bonus = (i32::from(depth.max(1)) * 291).min(2476) * if good { 1 } else { -1 };
+        let bonus = (i32::from(depth.max(1)) * tuning.get(crate::Parameter::HistoryBonus))
+            .min(tuning.get(crate::Parameter::HistoryMax))
+            * if good { 1 } else { -1 };
         let entry = &mut self.quiet[Self::index(board, chess_move)];
         let value = i32::from(*entry);
         *entry = i16::try_from(value + bonus - value * bonus.abs() / 16_384).unwrap_or(0);

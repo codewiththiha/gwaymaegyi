@@ -1,6 +1,6 @@
 //! UCI option validation and protocol discovery, committed atomically to the engine.
 
-use gwaymaegyi_search::{Engine, SkillLevel};
+use gwaymaegyi_search::{Behavior, Engine, Parameter, SkillLevel};
 
 #[derive(Debug)]
 pub(super) struct ProtocolOptions {
@@ -71,7 +71,23 @@ impl ProtocolOptions {
             "ponder" => {
                 ponder = value.parse().map_err(|_| "invalid ponder flag")?;
             }
-            _ => return Err(format!("unknown option: {name}")),
+            _ => {
+                let mut tuning = options.tuning();
+                if let Some(key) = name.strip_prefix("Behavior ") {
+                    tuning.set_behavior(
+                        Behavior::parse(key).map_err(|error| error.to_string())?,
+                        value.parse().map_err(|_| "invalid behavior flag")?,
+                    );
+                } else {
+                    tuning
+                        .set(
+                            Parameter::parse(name).map_err(|error| error.to_string())?,
+                            value.parse().map_err(|_| "invalid parameter value")?,
+                        )
+                        .map_err(|error| error.to_string())?;
+                }
+                options.set_tuning(tuning);
+            }
         }
         options
             .set_elo(if limited { elo } else { 0 })

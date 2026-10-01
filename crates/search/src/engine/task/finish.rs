@@ -8,7 +8,11 @@ use crate::engine::{
 use crate::{Completion, EngineError, Mode, PrincipalVariation};
 
 impl Task {
-    pub(super) fn returned(frame: &mut Frame, cache: &mut Cache) -> Result<Action, EngineError> {
+    pub(super) fn returned(
+        &self,
+        frame: &mut Frame,
+        cache: &mut Cache,
+    ) -> Result<Action, EngineError> {
         let Stage::Returned(mut pending, result) =
             std::mem::replace(&mut frame.stage, Stage::Moves)
         else {
@@ -65,11 +69,17 @@ impl Task {
                     frame.ply,
                     frame.depth,
                     false,
+                    self.options.tuning(),
                 );
             }
-            cache
-                .history
-                .record(&frame.board, chess_move, frame.ply, frame.depth, true);
+            cache.history.record(
+                &frame.board,
+                chess_move,
+                frame.ply,
+                frame.depth,
+                true,
+                self.options.tuning(),
+            );
             return Ok(Action::Complete(NodeResult {
                 score,
                 pv: frame.pv.clone(),
@@ -79,6 +89,14 @@ impl Task {
     }
 
     pub(super) fn finish_pass(&mut self, result: NodeResult) {
+        if self
+            .window
+            .as_mut()
+            .is_some_and(|window| window.retry(result.score))
+        {
+            return;
+        }
+        self.window = None;
         if let Some(&chess_move) = result.pv.first() {
             self.excluded.push(chess_move);
             self.lines.push(PrincipalVariation {

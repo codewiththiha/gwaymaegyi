@@ -5,7 +5,7 @@ use crate::engine::{
     frame::{Action, CachePolicy, Frame, NodeResult, Pending, Probe, Stage},
     table::{Bound, Cache},
 };
-use crate::{EngineError, INFINITY, MATE, MAX_PLY};
+use crate::{Behavior, EngineError, INFINITY, MATE, MAX_PLY, Parameter};
 use gwaymaegyi_core::{MoveKind, PieceKind};
 
 impl Task {
@@ -16,8 +16,8 @@ impl Task {
     ) -> Result<Action, EngineError> {
         match &frame.stage {
             Stage::Enter => Ok(self.enter(frame, cache)),
-            Stage::Moves => Ok(Self::next(frame)),
-            Stage::Returned(_, _) => Self::returned(frame, cache),
+            Stage::Moves => Ok(self.next(frame)),
+            Stage::Returned(_, _) => self.returned(frame, cache),
             Stage::Waiting(_) => Err(EngineError::InternalState),
         }
     }
@@ -92,7 +92,7 @@ impl Task {
                     || matches!(child.chess_move().kind(), MoveKind::Promotion(_))
             });
         }
-        Self::prune(frame)
+        self.prune(frame)
     }
 
     fn cached(frame: &Frame, cache: &Cache) -> Option<NodeResult> {
@@ -116,9 +116,14 @@ impl Task {
         None
     }
 
-    fn prune(frame: &mut Frame) -> Action {
+    fn prune(&self, frame: &mut Frame) -> Action {
+        let tuning = self.options.tuning();
         if frame.depth > 0 && !frame.in_check && !frame.pv_node && frame.ply > 0 {
-            if frame.depth <= 5 && frame.evaluation - 85 * i32::from(frame.depth) >= frame.beta {
+            if tuning.enabled(Behavior::ReverseFutility)
+                && i32::from(frame.depth) <= tuning.get(Parameter::RfpDepth)
+                && frame.evaluation - tuning.get(Parameter::RfpMargin) * i32::from(frame.depth)
+                    >= frame.beta
+            {
                 return Action::Complete(NodeResult {
                     score: (frame.evaluation + frame.beta) / 2,
                     pv: Vec::new(),
@@ -137,10 +142,19 @@ impl Task {
                     .pieces(frame.board.side_to_move(), kind)
                     .is_empty()
             });
-            if !frame.synthetic && non_pawn && frame.depth >= 3 && frame.evaluation >= frame.beta {
-                let reduction = 4
-                    + frame.depth / 5
-                    + i16::try_from(((frame.evaluation - frame.beta) / 175).min(3)).unwrap_or(3);
+            if tuning.enabled(Behavior::NullMove)
+                && !frame.synthetic
+                && non_pawn
+                && i32::from(frame.depth) >= tuning.get(Parameter::NullMinDepth)
+                && frame.evaluation >= frame.beta
+            {
+                let reduction = i16::try_from(
+                    tuning.get(Parameter::NullBase)
+                        + i32::from(frame.depth) / tuning.get(Parameter::NullDepthDiv)
+                        + ((frame.evaluation - frame.beta) / tuning.get(Parameter::NullEvalDiv))
+                            .min(3),
+                )
+                .unwrap_or(frame.depth);
                 frame.stage = Stage::Waiting(Pending {
                     index: 0,
                     depth: frame.depth - reduction,
@@ -156,7 +170,8 @@ impl Task {
         Action::Keep
     }
 
-    fn next(frame: &mut Frame) -> Action {
+    fn next(&self, frame: &mut Frame) -> Action {
+        let tuning = self.options.tuning();
         while let Some(candidate) = frame.candidates.get(frame.next) {
             let index = frame.next;
             frame.next += 1;
@@ -164,27 +179,40 @@ impl Task {
             let quiet = !frame.board.is_capture(chess_move)
                 && !matches!(chess_move.kind(), MoveKind::Promotion(_));
             let gives_check = candidate.board().in_check(candidate.board().side_to_move());
-            let shallow_quiet = !frame.pv_node
+            let shallow_quiet = tuning.enabled(Behavior::QuietPruning)
+                && !frame.pv_node
                 && !frame.in_check
                 && frame.best > -MATE + 100
                 && quiet
                 && !gives_check
-                && (1..=3).contains(&frame.depth);
-            let futile = frame.evaluation + 100 + 120 * i32::from(frame.depth) <= frame.alpha;
-            let late =
-                index >= usize::try_from(4 + frame.depth * frame.depth).unwrap_or(usize::MAX);
+                && frame.depth >= 1
+                && i32::from(frame.depth) <= tuning.get(Parameter::QuietDepth);
+            let futile = frame.evaluation
+                + tuning.get(Parameter::FutilityBase)
+                + tuning.get(Parameter::FutilityMargin) * i32::from(frame.depth)
+                <= frame.alpha;
+            let late = index
+                >= usize::try_from(
+                    tuning.get(Parameter::LateBase)
+                        + i32::from(frame.depth) * i32::from(frame.depth),
+                )
+                .unwrap_or(usize::MAX);
             if shallow_quiet && (futile || late) {
                 continue;
             }
             let depth = frame.depth - 1;
-            let reduction =
-                if quiet && !gives_check && !frame.in_check && frame.depth >= 3 && index >= 3 {
-                    (frame.depth / 3 + i16::try_from(index / 8).unwrap_or(3)
-                        - i16::from(frame.pv_node))
+            let reduction = if tuning.enabled(Behavior::LateReductions)
+                && quiet
+                && !gives_check
+                && !frame.in_check
+                && i32::from(frame.depth) >= tuning.get(Parameter::ReductionDepth)
+                && index >= 3
+            {
+                (frame.depth / 3 + i16::try_from(index / 8).unwrap_or(3) - i16::from(frame.pv_node))
                     .clamp(0, (depth - 1).max(0))
-                } else {
-                    0
-                };
+            } else {
+                0
+            };
             let (probe, window) = if index == 0 {
                 (Probe::Full, [-frame.beta, -frame.alpha])
             } else if reduction > 0 {

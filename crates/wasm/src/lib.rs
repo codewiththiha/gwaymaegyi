@@ -111,3 +111,25 @@ pub fn capabilities_json() -> String {
         cfg!(all(target_arch = "wasm32", target_feature = "simd128"))
     )
 }
+
+/// Discover only implemented, validated search controls.
+#[must_use]
+#[wasm_bindgen]
+pub fn search_controls_json() -> String {
+    let behaviors = gwaymaegyi_search::Behavior::ALL
+        .into_iter()
+        .map(|item| format!("\"{}\"", item.name()))
+        .collect::<Vec<_>>()
+        .join(",");
+    let parameters = gwaymaegyi_search::Parameter::SPECS
+        .into_iter()
+        .map(|spec| {
+            format!(
+                "{{\"name\":\"{}\",\"default\":{},\"min\":{},\"max\":{}}}",
+                spec.name, spec.default, spec.min, spec.max
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("{{\"behaviors\":[{behaviors}],\"parameters\":[{parameters}]}}")
+}

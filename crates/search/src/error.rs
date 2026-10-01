@@ -5,6 +5,8 @@ use std::{error::Error, fmt};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum EngineError {
     InvalidMode,
+    InvalidBehavior,
+    InvalidParameter,
     InvalidElo,
     InvalidSkill,
     InvalidHash,
@@ -22,6 +24,10 @@ impl fmt::Display for EngineError {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
         out.write_str(match self {
             Self::InvalidMode => "mode must be balanced, aggressive, human-like, or analysis",
+            Self::InvalidBehavior => "unknown search behavior",
+            Self::InvalidParameter => {
+                "unknown search parameter or value outside its supported range"
+            }
             Self::InvalidElo => "Elo must be zero for full strength or between 500 and 3000",
             Self::InvalidSkill => "skill level must be 1 through 21; 21 selects full strength",
             Self::NoActiveSearch => "a running search is required to update limits",
