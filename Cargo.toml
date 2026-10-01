@@ -40,6 +40,6 @@ codegen-units = 1
 
 [profile.wasm-release]
 inherits = "release"
-opt-level = "s"
+opt-level = 3
 strip = true
 panic = "abort"
