@@ -75,7 +75,7 @@ fn mate_and_stalemate_produce_no_phantom_moves() -> Result<(), Box<dyn Error>> {
     let report = finish(&mut engine, 64)?;
     let mv = report.best_move.ok_or("missing mating move")?;
     let child = engine.game().board().play_uci(&mv.to_uci(false), false)?;
-    assert!(child.legal_moves().is_empty());
+    assert_eq!(child.legal_moves(), Vec::new());
     assert!(child.in_check(child.side_to_move()));
     assert_eq!(report.score_cp, Some(29_999));
     Ok(())
