@@ -1,8 +1,20 @@
 use gwaymaegyi_search::SearchReport;
 
-pub(super) fn best(report: &SearchReport, chess960: bool) -> String {
+pub(super) fn best(report: &SearchReport, chess960: bool, ponder: bool) -> String {
+    let hint = if ponder {
+        report
+            .variations
+            .iter()
+            .find(|line| line.moves.first().copied() == report.best_move)
+            .and_then(|line| line.moves.get(1))
+    } else {
+        None
+    };
+    let suffix = hint.map_or_else(String::new, |chess_move| {
+        format!(" ponder {}", chess_move.to_uci(chess960))
+    });
     format!(
-        "bestmove {}",
+        "bestmove {}{suffix}",
         report
             .best_move
             .map_or_else(|| "0000".into(), |chess_move| chess_move.to_uci(chess960))

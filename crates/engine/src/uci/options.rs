@@ -3,6 +3,7 @@ use gwaymaegyi_search::Engine;
 #[derive(Debug)]
 pub(super) struct ProtocolOptions {
     pub overhead: u64,
+    pub ponder: bool,
     elo: u16,
     limited: bool,
 }
@@ -10,6 +11,7 @@ impl Default for ProtocolOptions {
     fn default() -> Self {
         Self {
             overhead: 20,
+            ponder: false,
             elo: 1500,
             limited: false,
         }
@@ -26,6 +28,7 @@ impl ProtocolOptions {
         let mut elo = self.elo;
         let mut limited = self.limited;
         let mut overhead = self.overhead;
+        let mut ponder = self.ponder;
         match name.to_ascii_lowercase().as_str() {
             "hash" => options
                 .set_hash_mib(value.parse().map_err(|_| "invalid hash size")?)
@@ -56,7 +59,7 @@ impl ProtocolOptions {
                 }
             }
             "ponder" => {
-                let _: bool = value.parse().map_err(|_| "invalid ponder flag")?;
+                ponder = value.parse().map_err(|_| "invalid ponder flag")?;
             }
             _ => return Err(format!("unknown option: {name}")),
         }
@@ -69,11 +72,15 @@ impl ProtocolOptions {
         self.elo = elo;
         self.limited = limited;
         self.overhead = overhead;
+        self.ponder = ponder;
         Ok(())
     }
 }
 
-pub(super) const IDENTIFICATION: &str = "id name gwaymaegyi 0.1.0\nid author codewiththiha\n\
+pub(super) const IDENTIFICATION: &str = concat!(
+    "id name gwaymaegyi ",
+    env!("CARGO_PKG_VERSION"),
+    "\nid author codewiththiha\n\
 option name Hash type spin default 8 min 1 max 64\n\
 option name MultiPV type spin default 1 min 1 max 5\n\
 option name Mode type combo default balanced var balanced var aggressive var human-like var analysis\n\
@@ -83,4 +90,5 @@ option name UCI_Elo type spin default 1500 min 500 max 3000\n\
 option name Seed type string default 19\n\
 option name Move Overhead type spin default 20 min 0 max 5000\n\
 option name Ponder type check default false\n\
-info string Elo targets are uncalibrated resource and error-tolerance presets\nuciok";
+info string Elo targets are uncalibrated resource and error-tolerance presets\nuciok"
+);

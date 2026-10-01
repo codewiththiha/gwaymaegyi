@@ -207,7 +207,11 @@ impl Worker {
                     }
                 }
             }
-            let _ = self.send(output::best(&report, self.engine.options().chess960()));
+            let _ = self.send(output::best(
+                &report,
+                self.engine.options().chess960(),
+                self.options.ponder,
+            ));
         }
     }
 }

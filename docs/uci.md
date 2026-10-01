@@ -24,6 +24,7 @@ ignores the configured strength cap.
 searchmoves, infinite, and ponder. Clock arithmetic saturates safely; absent
 clocks create no artificial deadline. Extremely large budgets are capped at
 24 hours. Infinite/ponder searches withhold `bestmove` until stop/ponderhit.
+Enabling Ponder adds a legal predicted reply when the selected PV has one.
 Invalid commands/positions/options emit a protocol-safe diagnostic and leave
 valid game/search state intact. Position/option updates cancel stale analysis.
 

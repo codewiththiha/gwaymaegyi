@@ -110,6 +110,11 @@ def main(executable):
         engine.send("position fen 4k3/8/8/8/8/8/8/R4KR1 w GA - 0 1")
         engine.send("go depth 1 searchmoves f1g1")
         assert engine.until("bestmove ")[-1] == "bestmove f1g1"
+        engine.send("setoption name Ponder value true")
+        engine.send("position startpos")
+        engine.send("go depth 3")
+        hint = engine.until("bestmove ")[-1]
+        assert " ponder " in hint, hint
         print("Native UCI smoke: handshake, search, stop, ready, ponder, roots, mate, presets, Chess960 passed")
     finally:
         engine.close()
