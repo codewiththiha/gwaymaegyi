@@ -1,9 +1,11 @@
 mod attacks;
 mod castling;
 mod fen;
+mod identity;
 mod movegen;
 mod perft;
 mod play;
+mod query;
 
 use crate::{Bitboard, Color, Move, Piece, PieceKind, Square};
 use castling::CastlingRights;
@@ -23,6 +25,7 @@ pub struct Board {
     en_passant: Option<Square>,
     halfmove: u32,
     fullmove: u32,
+    identity: crate::PositionKey,
 }
 
 impl Board {
@@ -36,6 +39,7 @@ impl Board {
             en_passant: None,
             halfmove: 0,
             fullmove: 1,
+            identity: crate::PositionKey::empty(),
         }
     }
 
@@ -67,7 +71,10 @@ impl Board {
 
     #[must_use]
     pub fn legal_moves(&self) -> Vec<Move> {
-        movegen::legal_moves(self)
+        self.legal_successors()
+            .into_iter()
+            .map(|child| child.chess_move())
+            .collect()
     }
 
     fn king(&self, color: Color) -> Option<Square> {
@@ -77,14 +84,42 @@ impl Board {
     const fn place(&mut self, square: Square, piece: Piece) {
         self.remove(square);
         self.mailbox[square.index()] = Some(piece);
+        self.identity.toggle(piece, square);
         self.roles[piece.kind.index()].0 |= square.bit();
         self.colors[piece.color.index()].0 |= square.bit();
     }
 
     const fn remove(&mut self, square: Square) {
         if let Some(piece) = self.mailbox[square.index()].take() {
+            self.identity.toggle(piece, square);
             self.roles[piece.kind.index()].0 &= !square.bit();
             self.colors[piece.color.index()].0 &= !square.bit();
         }
+    }
+}
+
+/// A legal transition produced by the position that owns it.
+#[derive(Clone, Copy, Debug)]
+pub struct Successor {
+    chess_move: Move,
+    board: Board,
+}
+
+impl Successor {
+    #[must_use]
+    pub const fn chess_move(self) -> Move {
+        self.chess_move
+    }
+
+    #[must_use]
+    pub const fn board(&self) -> &Board {
+        &self.board
+    }
+}
+
+impl Board {
+    #[must_use]
+    pub fn legal_successors(&self) -> Vec<Successor> {
+        movegen::legal_successors(self)
     }
 }

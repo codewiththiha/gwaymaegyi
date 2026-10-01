@@ -154,6 +154,7 @@ impl FromStr for Board {
         if board.fullmove == 0 {
             return Err(FenError::FullmoveNumber);
         }
+        board.identity = board.recomputed_key();
         Ok(board)
     }
 }

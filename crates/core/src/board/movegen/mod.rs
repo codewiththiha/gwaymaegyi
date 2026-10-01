@@ -3,7 +3,7 @@ mod pawns;
 use super::attacks::piece_attacks;
 use crate::{Bitboard, Board, Move, MoveKind, PieceKind};
 
-pub(super) fn legal_moves(board: &Board) -> Vec<Move> {
+pub(super) fn legal_successors(board: &Board) -> Vec<super::Successor> {
     let mut moves = Vec::with_capacity(64);
     pawns::generate(board, &mut moves);
     let occupied = board.occupied();
@@ -26,10 +26,14 @@ pub(super) fn legal_moves(board: &Board) -> Vec<Move> {
         }
     }
     super::castling::generate(board, &mut moves);
-    moves.retain(|&chess_move| {
-        board
-            .after_generated_move(chess_move)
-            .is_some_and(|child| !child.in_check(board.side))
-    });
     moves
+        .into_iter()
+        .filter_map(|chess_move| {
+            let child = board.after_generated_move(chess_move)?;
+            (!child.in_check(board.side)).then_some(super::Successor {
+                chess_move,
+                board: child,
+            })
+        })
+        .collect()
 }

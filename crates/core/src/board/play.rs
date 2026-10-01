@@ -27,6 +27,7 @@ impl Board {
         let to = chess_move.to();
         let piece = self.piece_on(from)?;
         let mut child = *self;
+        let old_state = self.state_key();
         let is_capture = self.piece_on(to).is_some() && chess_move.kind() != MoveKind::Castle;
         child.en_passant = None;
         child.castling.remove_at(from);
@@ -65,6 +66,7 @@ impl Board {
             child.fullmove = child.fullmove.saturating_add(1);
         }
         child.side = self.side.opposite();
+        child.identity.toggle_state(old_state ^ child.state_key());
         Some(child)
     }
 }

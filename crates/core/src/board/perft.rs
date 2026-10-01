@@ -6,14 +6,13 @@ pub fn perft(board: &Board, depth: u8) -> u64 {
     if depth == 0 {
         return 1;
     }
-    let moves = board.legal_moves();
+    let moves = board.legal_successors();
     if depth == 1 {
         return moves.len() as u64;
     }
     moves
         .into_iter()
-        .filter_map(|chess_move| board.after_generated_move(chess_move))
-        .map(|child| perft(&child, depth - 1))
+        .map(|child| perft(child.board(), depth - 1))
         .sum()
 }
 
@@ -24,12 +23,8 @@ pub fn divide(board: &Board, depth: u8) -> Vec<(Move, u64)> {
         return Vec::new();
     }
     board
-        .legal_moves()
+        .legal_successors()
         .into_iter()
-        .filter_map(|chess_move| {
-            board
-                .after_generated_move(chess_move)
-                .map(|child| (chess_move, perft(&child, depth - 1)))
-        })
+        .map(|child| (child.chess_move(), perft(child.board(), depth - 1)))
         .collect()
 }
