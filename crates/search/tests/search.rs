@@ -52,7 +52,7 @@ fn mate_and_stalemate_produce_no_phantom_moves() -> Result<(), Box<dyn Error>> {
         assert_eq!(report.score_cp, Some(expected));
     }
     let mut engine = Engine::new()?;
-    engine.set_position("7k/8/6KQ/8/8/8/8/8 w - - 0 1", &[])?;
+    engine.set_position("k7/2K5/8/8/8/8/8/1Q6 w - - 0 1", &[])?;
     engine.start(SearchLimits {
         depth: 2,
         nodes: 10_000,

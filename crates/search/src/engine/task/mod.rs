@@ -8,10 +8,12 @@ mod advance;
 mod finish;
 mod scoring;
 mod window;
+
 use window::Window;
 
 use crate::{
-    Completion, EngineError, Options, PrincipalVariation, SearchLimits, SearchReport, SearchStatus,
+    Completion, EngineError, Options, Parameter, PrincipalVariation, SearchLimits, SearchReport,
+    SearchStatus,
 };
 use gwaymaegyi_core::{Board, Game, Move, Outcome};
 use gwaymaegyi_eval::Accumulator;
@@ -29,7 +31,8 @@ pub(super) struct Task {
     pub excluded: Vec<Move>,
     pub root: Board,
     pub root_moves: Vec<Move>,
-    scope: u64,
+    pub scope: u64,
+    lmr_table: Vec<i16>,
     window: Option<Window>,
 }
 
@@ -79,10 +82,32 @@ impl Task {
             excluded: Vec::new(),
             root,
             root_moves,
-            window: None,
             scope: root.key().full().rotate_left(33)
                 ^ (options.model(&root) as u64 + 1).wrapping_mul(0xd6e8_feb8_6659_fd93),
+            lmr_table: Self::lmr_table_for(options.tuning()),
+            window: None,
         })
+    }
+
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Values are bounded by log(64) squared times the scale, far below i16 range."
+    )]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "Indices never exceed 64, which fits exactly in f64."
+    )]
+    fn lmr_table_for(tuning: crate::SearchTuning) -> Vec<i16> {
+        let mut table = vec![0i16; 65 * 65];
+        let base = f64::from(tuning.get(Parameter::LmrBase)) / 10.0;
+        let scale = 10.0 / f64::from(tuning.get(Parameter::LmrRatio));
+        for depth in 1..=64usize {
+            for move_ in 1..=64usize {
+                let value = ((depth as f64).ln() * (move_ as f64).ln()).mul_add(scale, base);
+                table[depth * 65 + move_] = value as i16;
+            }
+        }
+        table
     }
 
     pub(super) fn step(&mut self, cache: &mut Cache, work: u32) -> Result<(), EngineError> {
@@ -103,12 +128,11 @@ impl Task {
             let action = self.advance(&mut frame, cache)?;
             match action {
                 Action::Keep => self.frames.push(frame),
-                Action::Descend {
-                    depth,
-                    window,
-                    null,
-                } => {
-                    let child = self.child(&frame, depth, window, null)?;
+                Action::Descend => {
+                    let Stage::Waiting(pending) = frame.stage else {
+                        return Err(EngineError::InternalState);
+                    };
+                    let child = self.child(&frame, &pending)?;
                     self.frames.push(frame);
                     self.frames.push(child);
                 }
@@ -160,20 +184,16 @@ impl Task {
             .fold(0_u64, |sum, key| sum.wrapping_add(key.rotate_left(7)));
         let tuning = self.options.tuning();
         let guess = if tuning.enabled(crate::Behavior::Aspiration)
-            && i32::from(self.iteration) >= tuning.get(crate::Parameter::AspirationDepth)
+            && i32::from(self.iteration) >= tuning.get(Parameter::AspirationDepth)
+            && self.lines.is_empty()
         {
-            self.report
-                .variations
-                .get(self.lines.len())
-                .map(|line| line.score_cp)
+            self.report.variations.first().map(|line| line.score_cp)
         } else {
             None
         };
         let window = self
             .window
-            .get_or_insert_with(|| {
-                Window::new(guess, tuning.get(crate::Parameter::AspirationWindow))
-            })
+            .get_or_insert_with(|| Window::new(guess, tuning.get(Parameter::AspirationWindow)))
             .bounds;
         self.frames.push(Frame::new(
             self.root,
@@ -191,49 +211,58 @@ impl Task {
     fn child(
         &self,
         parent: &Frame,
-        depth: i16,
-        window: [i32; 2],
-        null: bool,
+        pending: &crate::engine::frame::Pending,
     ) -> Result<Frame, EngineError> {
-        let Stage::Waiting(pending) = parent.stage else {
-            return Err(EngineError::InternalState);
-        };
-        let board = if null {
-            parent
-                .board
-                .null_position()
-                .ok_or(EngineError::InternalState)?
-        } else {
-            *parent
-                .candidates
-                .get(pending.index)
-                .ok_or(EngineError::InternalState)?
-                .board()
+        use crate::engine::frame::Probe;
+        let (board, excluded) = match pending.probe {
+            Probe::Null => (
+                parent
+                    .board
+                    .null_position()
+                    .ok_or(EngineError::InternalState)?,
+                None,
+            ),
+            Probe::Singular => (parent.board, parent.tt_move),
+            _ => (
+                *parent
+                    .candidates
+                    .get(pending.index)
+                    .ok_or(EngineError::InternalState)?
+                    .board(),
+                None,
+            ),
         };
         let context = if board.halfmove_clock() == 0 {
             board.key().full().rotate_left(7)
+        } else if pending.probe == Probe::Singular {
+            parent.context
         } else {
             parent
                 .context
                 .wrapping_add(board.key().full().rotate_left(7))
         };
         let model = self.options.model(&board);
-        let accumulator = if model == parent.accumulator.model() {
+        let accumulator = if pending.probe == Probe::Singular {
+            parent.accumulator.clone()
+        } else if model == parent.accumulator.model() {
             parent.accumulator.updated(&board)
         } else {
             Accumulator::new(&board, model)
         };
-        Ok(Frame::new(
+        let window = pending.window;
+        let mut frame = Frame::new(
             board,
             accumulator,
-            depth,
+            pending.depth,
             parent.ply + 1,
             window,
-            window[1] - window[0] > 1,
-            parent.synthetic || null,
+            parent.flags.pv_node() && pending.probe == Probe::Full,
+            parent.flags.synthetic() || pending.probe == Probe::Null,
             context,
             self.scope,
-        ))
+        );
+        frame.excluded = excluded;
+        Ok(frame)
     }
 }
 
@@ -242,7 +271,10 @@ mod tests {
     use super::Task;
     use crate::{
         EngineError, Options, SearchLimits,
-        engine::{frame::CachePolicy, table::Cache},
+        engine::{
+            frame::{CachePolicy, Stage},
+            table::Cache,
+        },
     };
     use gwaymaegyi_core::Game;
     use std::error::Error;
@@ -278,7 +310,10 @@ mod tests {
         let mut cache = Cache::new(1)?;
         task.advance(&mut parent, &mut cache)?;
         task.advance(&mut parent, &mut cache)?;
-        let child = task.child(&parent, 0, [-crate::INFINITY, crate::INFINITY], false)?;
+        let Stage::Waiting(pending) = parent.stage else {
+            panic!("expected waiting stage")
+        };
+        let child = task.child(&parent, &pending)?;
         assert_eq!(parent.accumulator.model(), gwaymaegyi_eval::Model::Balanced);
         assert_eq!(child.accumulator.model(), gwaymaegyi_eval::Model::Endgame);
         assert_eq!(

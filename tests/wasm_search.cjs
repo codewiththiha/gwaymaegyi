@@ -19,7 +19,9 @@ const {pathToFileURL} = require('node:url');
   assert.equal(capabilities.liveLimits, true);
   const controls=JSON.parse(wasm.search_controls_json());
   assert.ok(controls.behaviors.includes('aspiration'));
-  assert.equal(controls.parameters.length,15);
+  assert.equal(controls.parameters.length,31);
+    assert.ok(controls.parameters.some((item) => item.name === 'SEDepth'));
+    assert.ok(controls.parameters.some((item) => item.name === 'LMRBase'));
   let checks = 0;
   for (const line of fs.readFileSync('crates/eval/tests/scores.txt', 'utf8').trim().split('\n')) {
     const fields = line.trim().split(/\s+/);

@@ -1,11 +1,11 @@
-//! Child-result delivery, re-search decisions, and completed root variation selection.
+//! Child-result delivery, re-search decisions, and completed root selection.
 
 use super::Task;
 use crate::engine::{
-    frame::{Action, Frame, NodeResult, Probe, Stage},
+    frame::{Action, Frame, NodeResult, Pending, Probe, Stage},
     table::Cache,
 };
-use crate::{Completion, EngineError, Mode, PrincipalVariation};
+use crate::{Completion, EngineError, Mode, Parameter, PrincipalVariation};
 
 impl Task {
     pub(super) fn returned(
@@ -13,11 +13,11 @@ impl Task {
         frame: &mut Frame,
         cache: &mut Cache,
     ) -> Result<Action, EngineError> {
-        let Stage::Returned(mut pending, result) =
-            std::mem::replace(&mut frame.stage, Stage::Moves)
+        let Stage::Returned(pending, result) = std::mem::replace(&mut frame.stage, Stage::Moves)
         else {
             return Err(EngineError::InternalState);
         };
+        let tuning = self.options.tuning();
         let score = -result.score;
         match pending.probe {
             Probe::Null => {
@@ -29,23 +29,36 @@ impl Task {
                 }
                 return Ok(Action::Keep);
             }
-            Probe::Reduced if score > frame.alpha => {
-                pending.probe = Probe::Scout;
-                frame.stage = Stage::Waiting(pending);
-                return Ok(Action::Descend {
-                    depth: pending.depth,
-                    window: [-frame.alpha - 1, -frame.alpha],
-                    null: false,
-                });
+            Probe::Probcut => {
+                let p_beta = pending.beta;
+                if score >= p_beta {
+                    return Ok(Action::Complete(NodeResult {
+                        score,
+                        pv: Vec::new(),
+                    }));
+                }
+                return Ok(Action::Keep);
             }
-            Probe::Scout if score > frame.alpha && frame.pv_node => {
-                pending.probe = Probe::Full;
-                frame.stage = Stage::Waiting(pending);
-                return Ok(Action::Descend {
-                    depth: pending.depth,
-                    window: [-frame.beta, -frame.alpha],
-                    null: false,
-                });
+            Probe::Singular => return Ok(self.apply_singular(frame, pending, score, tuning)),
+            Probe::Reduced if score > frame.alpha => {
+                Self::schedule_retry(
+                    frame,
+                    pending.index,
+                    pending.depth,
+                    Probe::Scout,
+                    [-frame.alpha - 1, -frame.alpha],
+                );
+                return Ok(Action::Descend);
+            }
+            Probe::Scout if score > frame.alpha && frame.flags.pv_node() => {
+                Self::schedule_retry(
+                    frame,
+                    pending.index,
+                    pending.depth,
+                    Probe::Full,
+                    [-frame.beta, -frame.alpha],
+                );
+                return Ok(Action::Descend);
             }
             Probe::Full | Probe::Scout | Probe::Reduced => {}
         }
@@ -62,30 +75,81 @@ impl Task {
         }
         frame.alpha = frame.alpha.max(score);
         if score >= frame.beta {
-            for candidate in frame.candidates.iter().take(pending.index) {
-                cache.history.record(
-                    &frame.board,
-                    candidate.chess_move(),
-                    frame.ply,
-                    frame.depth,
-                    false,
-                    self.options.tuning(),
-                );
+            let priors = self.priors();
+            let bonus = (i32::from(frame.depth.max(1)) * tuning.get(Parameter::HistBonus))
+                .min(tuning.get(Parameter::HistMax));
+            for preceding in frame
+                .candidates
+                .iter()
+                .take(pending.index)
+                .filter(|item| item.is_quiet)
+            {
+                cache
+                    .history
+                    .record_malus(&frame.board, preceding.chess_move(), -bonus);
             }
-            cache.history.record(
-                &frame.board,
-                chess_move,
-                frame.ply,
-                frame.depth,
-                true,
-                self.options.tuning(),
-            );
+            cache
+                .history
+                .record_cutoff(&frame.board, chess_move, frame.ply, bonus, priors);
             return Ok(Action::Complete(NodeResult {
                 score,
                 pv: frame.pv.clone(),
             }));
         }
         Ok(Action::Keep)
+    }
+
+    fn apply_singular(
+        &self,
+        frame: &mut Frame,
+        pending: Pending,
+        score: i32,
+        tuning: crate::SearchTuning,
+    ) -> Action {
+        let s_beta = pending.beta;
+        let extension = if score < s_beta {
+            if !frame.flags.pv_node()
+                && score + tuning.get(Parameter::SingularDoubleMargin) < s_beta
+                && i32::from(frame.ply) < i32::from(self.iteration)
+            {
+                let tt_quiet = frame
+                    .tt_move
+                    .is_some_and(|chess_move| !frame.board.is_capture(chess_move));
+                2 + i32::from(
+                    tt_quiet && score < s_beta - tuning.get(Parameter::SingularTripleMargin),
+                )
+            } else {
+                1
+            }
+        } else if s_beta >= frame.beta {
+            // Multicut: another move beat beta, so this one probably will too.
+            return Action::Complete(NodeResult {
+                score: s_beta,
+                pv: Vec::new(),
+            });
+        } else if frame.flags.cutnode() {
+            -1
+        } else {
+            0
+        };
+        let depth = (frame.depth - 1 + i16::try_from(extension).unwrap_or(0)).max(1);
+        let (probe, window) = if frame.flags.pv_node() {
+            (Probe::Full, [-frame.beta, -frame.alpha])
+        } else {
+            (Probe::Scout, [-frame.alpha - 1, -frame.alpha])
+        };
+        Self::schedule_retry(frame, 0, depth, probe, window);
+        Action::Descend
+    }
+
+    fn schedule_retry(frame: &mut Frame, index: usize, depth: i16, probe: Probe, window: [i32; 2]) {
+        frame.stage = Stage::Waiting(Pending {
+            index,
+            depth,
+            probe,
+            beta: 0,
+            window,
+        });
     }
 
     pub(super) fn finish_pass(&mut self, result: NodeResult) {
@@ -109,6 +173,10 @@ impl Task {
             }
             self.report.depth = self.iteration;
             self.report.variations = std::mem::take(&mut self.lines);
+            // Lines complete in search order, not score order; publish them sorted.
+            self.report
+                .variations
+                .sort_by_key(|line| std::cmp::Reverse(line.score_cp));
             let chosen = self.choose();
             if let Some(line) = self.report.variations.get(chosen) {
                 self.report.best_move = line.moves.first().copied();
