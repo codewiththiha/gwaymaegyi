@@ -35,7 +35,7 @@ impl Board {
         }
         if self.has_legal_en_passant() {
             if let Some(square) = self.en_passant {
-                state ^= crate::key::random(801 + square.file() as u64);
+                state ^= crate::key::random(801 + u64::from(square.file()));
             }
         }
         state

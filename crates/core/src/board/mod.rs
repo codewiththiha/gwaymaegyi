@@ -73,7 +73,7 @@ impl Board {
     pub fn legal_moves(&self) -> Vec<Move> {
         self.legal_successors()
             .into_iter()
-            .map(|child| child.chess_move())
+            .map(Successor::chess_move)
             .collect()
     }
 
