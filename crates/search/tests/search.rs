@@ -176,7 +176,7 @@ fn repeated_positions_and_capture_resets_do_not_poison_search() -> Result<(), Bo
             "g1f3", "g8f6", "f3g1", "f6g8", "g1f3", "g8f6", "f3g1", "f6g8",
         ],
     )?;
-    engine.start(SearchLimits::default())?;
+    engine.start_moves(SearchLimits::default(), &["g1f3"])?;
     assert_eq!(finish(&mut engine, 32)?.score_cp, Some(0));
     Ok(())
 }
@@ -205,5 +205,17 @@ fn root_filters_validate_atomically_and_keep_the_requested_move() -> Result<(), 
         Some("e2e4".into())
     );
     assert_eq!(report.variations.len(), 1);
+    Ok(())
+}
+
+#[test]
+fn optional_clock_claims_do_not_hide_a_mating_root_move() -> Result<(), Box<dyn Error>> {
+    let mut engine = Engine::new()?;
+    engine.set_position("7k/8/6KQ/8/8/8/8/8 w - - 149 1", &[])?;
+    engine.start(SearchLimits {
+        depth: 2,
+        nodes: 10_000,
+    })?;
+    assert_eq!(finish(&mut engine, 64)?.score_cp, Some(29_999));
     Ok(())
 }

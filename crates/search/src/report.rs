@@ -33,3 +33,23 @@ pub struct SearchReport {
     pub score_cp: Option<i32>,
     pub variations: Vec<PrincipalVariation>,
 }
+
+impl PrincipalVariation {
+    #[must_use]
+    pub fn mate_in(&self) -> Option<i32> {
+        mate_in(self.score_cp)
+    }
+}
+impl SearchReport {
+    #[must_use]
+    pub fn mate_in(&self) -> Option<i32> {
+        self.score_cp.and_then(mate_in)
+    }
+}
+fn mate_in(score: i32) -> Option<i32> {
+    let magnitude = score.checked_abs()?;
+    if !(crate::MATE_THRESHOLD..=crate::MATE).contains(&magnitude) {
+        return None;
+    }
+    Some((crate::MATE - magnitude + 1) / 2 * score.signum())
+}

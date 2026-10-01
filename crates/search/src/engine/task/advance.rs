@@ -47,6 +47,7 @@ impl Task {
         }
         if frame.board.insufficient_material()
             || (!frame.synthetic
+                && frame.ply > 0
                 && (frame.board.halfmove_clock() >= 100 || self.repetitions(frame) >= 3))
         {
             frame.cache_policy = CachePolicy::Skip;
