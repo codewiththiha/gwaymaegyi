@@ -2,7 +2,7 @@
 
 use gwaymaegyi::{
     AnalysisRequest, DatagenConfig, MAX_DEPTH, MAX_HASH_MIB, MAX_THREADS, Options, SearchLimits,
-    analyze_batch, analyze_parallel, generate_training_data,
+    SearchReport, TrainingRecord, analyze_batch, analyze_parallel, generate_training_data,
 };
 use gwaymaegyi_core::START_FEN;
 use std::{error::Error, sync::atomic::AtomicBool};
@@ -25,7 +25,10 @@ fn request(options: Options) -> AnalysisRequest {
 fn worker_counts_above_16_are_supported() -> Result<(), Box<dyn Error>> {
     let cancel = AtomicBool::new(false);
     assert_eq!(MAX_THREADS, 1024);
-    assert!(analyze_batch(&[], MAX_THREADS, &cancel)?.is_empty());
+    assert_eq!(
+        analyze_batch(&[], MAX_THREADS, &cancel)?,
+        Vec::<SearchReport>::new()
+    );
     assert!(analyze_batch(&[], MAX_THREADS + 1, &cancel).is_err());
     let mut options = Options::default();
     options.set_hash_mib(1)?;
@@ -59,9 +62,15 @@ fn large_datagen_runs_use_native_ranges_and_cancel_before_allocating() -> Result
         ..DatagenConfig::default()
     };
     let cancel = AtomicBool::new(true);
-    assert!(generate_training_data(&config, &cancel)?.is_empty());
+    assert_eq!(
+        generate_training_data(&config, &cancel)?,
+        Vec::<TrainingRecord>::new()
+    );
     config.positions = usize::MAX;
-    assert!(generate_training_data(&config, &cancel)?.is_empty());
+    assert_eq!(
+        generate_training_data(&config, &cancel)?,
+        Vec::<TrainingRecord>::new()
+    );
     config.threads = MAX_THREADS + 1;
     assert!(generate_training_data(&config, &cancel).is_err());
     config.threads = 1;
