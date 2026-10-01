@@ -99,3 +99,28 @@ It is a single-position virtual-machine measurement, not a universal throughput
 claim or strength estimate. SIMD128 versus portable speed has not been measured
 in this comparison. Run `node scripts/bench_wasm.cjs PATH_TO_NODE_BINDINGS` to repeat
 on deployment hardware; preserve correctness snapshots when changing profiles.
+
+## Contributor headers and live controls
+
+Verified revision: `676c207435cbb8ccc39c96c03e6fb6ca7fae2336`.
+[Native and both WASM backends](https://github.com/codewiththiha/gwaymaegyi/actions/runs/36812257064).
+[Extended Windows/macOS checks](https://github.com/codewiththiha/gwaymaegyi/actions/runs/36812954619).
+All jobs passed on 2026-10-01, including 42 native tests, 22 Python tests, code-header
+validation, and the existing raw evaluation/search snapshots.
+
+Rust module docs and language-appropriate summaries now describe code-file
+responsibility without decorative comments. Shared validated skill controls expose
+all 20 nominal Elo presets plus level 21 for full strength. Both compiled WASM
+backends verify every mapping, invalid-level rollback, custom-Elo getter semantics,
+requested/effective budgets, and live continuation invariance.
+
+Actual worker tests verify live slice/report/time/node adjustments, invalid update
+rollback, full-budget defaults, skill/style changes, stale-target rejection, and
+stop/reset handling. Increasing compute caps does not bypass deliberately limited
+strength. Policy changes cancel incompatible analysis; compute-only changes keep
+valid running stacks. Windows/macOS retain identical search snapshots and UCI
+skill-option behavior.
+
+This closes the control exposure gate, not full feature/search-strength parity or
+rating calibration. Full compute uses the maximum capabilities implemented in this
+single-worker engine; it does not imply native SMP/ISA throughput on every device.

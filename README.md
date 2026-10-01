@@ -22,11 +22,14 @@ default rustfmt, and strict compiler/Clippy checks apply throughout.
 
 Select **balanced**, **aggressive**, **human-like**, or **analysis**. Full strength
 is the default; nominal **500–3000 Elo** settings select resource/error-tolerance
-presets. **These targets are not calibrated ratings.** Analysis ignores the strength
+presets. Skill levels 1–20 map to these nominal targets; level 21 selects full
+strength. **These targets are not calibrated ratings.** Analysis ignores the strength
 cap. Neither a measured playing rating nor literal error-free software is claimed.
-See [playing controls](docs/search.md) for the policies and limits.
+See [control endpoints and skill presets](docs/controls.md) for the complete
+Rust/UCI/WASM access matrix and live compute controls.
 
-The current search is single-worker. Parallel native search, tablebase probing,
+The working engine and interfaces are not a claim of complete feature, search,
+or measured strength parity with another engine. The current search is single-worker. Parallel native search, tablebase probing,
 and controlled strength calibration remain future work; see the
 [roadmap](docs/roadmap.md) and [verification evidence](docs/verification.md).
 
@@ -106,7 +109,9 @@ worker.postMessage({id: 'analysis-1', type: 'start', depth: 8, nodes: '100000'})
 ```
 
 The SDK yields tasks between bounded slices and handles stop/reset while preserving
-search progress. Counts and seeds use decimal strings. Direct `Engine` bindings,
+search progress. Its default full compute profile uses the maximum supported budgets;
+use time/node caps or balanced/responsive profiles for bounded play. Live performance
+updates retain the continuation, while playing-policy changes cancel stale analysis. Counts and seeds use decimal strings. Direct `Engine` bindings,
 raw evaluation, and the original position-only helpers remain available.
 [WASM API and packaging](docs/wasm.md) explain ownership, backend selection, and messages.
 

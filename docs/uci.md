@@ -15,7 +15,8 @@ go wtime 60000 btime 60000 winc 1000 binc 1000
 ```
 
 Options: Hash (1–64 MiB), MultiPV (1–5), Mode, UCI_Chess960, UCI_LimitStrength,
-UCI_Elo (500–3000), Seed (unsigned 64-bit decimal), Move Overhead (0–5000 ms),
+UCI_Elo (500–3000), Skill_Level (1–21), Seed (unsigned 64-bit decimal),
+Move Overhead (0–5000 ms),
 and Ponder. Turning limit strength off selects full strength. Numeric Elo
 values are **uncalibrated presets**, not measured engine ratings. Analysis mode
 ignores the configured strength cap.
@@ -33,3 +34,8 @@ return `bestmove 0000`; stopping early returns completed analysis or a legal
 root fallback. EOF cancels active work and returns that fallback before exit.
 Input lines are capped at 16 KiB. These safeguards are not a literal guarantee
 that software or its host cannot fail.
+
+Skill_Level 1–20 selects the documented nominal preset table; level 21 restores full
+strength. Setting a valid skill level activates its strength selection immediately
+when the command is processed. The preset labels remain uncalibrated. The complete
+mapping and shared WASM endpoints are in [controls](controls.md).

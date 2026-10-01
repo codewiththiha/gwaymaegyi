@@ -10,7 +10,7 @@ placeholder crates for future work. Evidence belongs in [verification](verificat
 | Evaluation | Exact scalar scores, incremental refresh agreement, native/WASM fixtures | Verified |
 | Single-worker search | Deterministic score/move/node snapshots, terminals, bounded limits | Verified |
 | Native/browser control | Real UCI process tests, actual worker stop/reset, stale suppression, transactional inputs | Verified |
-| Playing controls | Validated full/approximate strength, modes, reproducible decisions | Implemented and verified; ratings uncalibrated |
+| Playing controls | Validated full/approximate strength, modes, reproducible decisions | Implemented and verified; 21-level controls, ratings uncalibrated |
 | Platform portability | Windows/macOS lints, tests, protocol and snapshot checks | Verified |
 | Parallel native search | Race-free ownership/shutdown and repeatable match testing | Future work |
 | Endgame probing | Real backend fixtures, option tests, legal root selection | Future work |

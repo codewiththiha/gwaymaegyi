@@ -57,6 +57,12 @@ nodes, and candidate loss tolerance. Elo cannot be claimed until controlled
 match testing against rated opponents establishes a reproducible calibration.
 The modes are style policies, not guarantees of a human opponent's behavior.
 
+SkillLevel validates presets 1–21; level 21 selects full strength. The complete
+nominal mapping is in [controls](controls.md). `SearchLimits::full()` requests the
+maximum supported caps. `Engine::set_limits` adjusts a running search without
+restarting its stack; exhausted lower caps stop it and retain completed results.
+Requested and effective limits are available separately.
+
 Limits: depth 1–64, positive node count, MultiPV 1–5, hash 1–64 MiB, and slices
 1–65536 work units. Browser workers should use small slices such as 128 or 256
 and yield a task between them; synchronous calls still block their calling thread.

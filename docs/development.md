@@ -13,6 +13,7 @@ cargo test --locked --workspace --all-targets --all-features
 cargo doc --locked --workspace --no-deps
 cargo clippy --locked -p gwaymaegyi-wasm --target wasm32-unknown-unknown --all-targets -- -D warnings
 python3 scripts/check_paths.py
+python3 scripts/check_headers.py
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
@@ -93,3 +94,10 @@ Exit codes: 0 success (or an active one-shot snapshot), 1 unsuccessful run,
 130 interruption. Monitor interruption does not cancel the GitHub run.
 The reader highlights compiler/test diagnostics rather than post-job cleanup;
 `--tail` is the fallback when no matching diagnostic lines are present.
+
+## Contributor navigation
+
+Every code file starts with a short responsibility summary. Rust uses standard
+inner module docs (`//!`); other languages use their normal module/header convention.
+`scripts/check_headers.py` verifies that these entry points exist. Keep summaries
+brief and explain ownership or offered APIs rather than restating file syntax.

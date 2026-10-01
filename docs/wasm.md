@@ -19,7 +19,7 @@ worker.onmessage = ({data}) => {
   if (data.type === 'progress' || data.type === 'done') console.log(data.report);
 };
 worker.postMessage({id: 'settings', type: 'configure', options: {
-  mode: 'human-like', elo: 1800, hashMiB: 8, seed: '19'
+  mode: 'human-like', skillLevel: 10, hashMiB: 8, seed: '19'
 }});
 worker.postMessage({id: 'analysis-1', type: 'start', depth: 8, nodes: '100000'});
 worker.postMessage({id: 'stop-1', type: 'stop', target: 'analysis-1'});
@@ -31,10 +31,11 @@ capabilities. Requests need unique string/safe-integer ids. Responses use `ack`,
 
 | Request type | Fields and behavior |
 | --- | --- |
-| `configure` | Partial `options`: mode, elo, hashMiB, multiPv, chess960, seed |
+| `configure` | Partial `options`: mode, elo or skillLevel, hashMiB, multiPv, chess960, seed |
 | `position` | FEN and optional UCI move list; validates atomically |
 | `play` | One legal UCI `move` in the current game |
-| `start` | Optional depth, decimal nodes, roots, quantum, timeMs |
+| `start` | Optional profile, depth, decimal nodes, roots, quantum, reportIntervalMs, timeMs |
+| `performance` | Live depth/node/time/slice/reporting settings; optional target id |
 | `stop` | Optional target search id; stale targets cannot stop a newer job |
 | `reset` | Start position; preserve configuration and discard stale analysis |
 | `status` | Game/configuration and latest report |
@@ -46,7 +47,9 @@ Old callbacks cannot publish after a successful replacement. Invalid inputs keep
 the existing game and active continuation. Progress is throttled; the last complete
 set of variations remains available if a later iteration is interrupted.
 
-Default slice: 256 work units; use smaller values for slower devices. A work bound
+Default full profile: maximum supported depth/nodes, 1024 work units, and 100 ms
+reporting. Balanced/responsive presets and individual overrides remain available.
+Use smaller slices on slower devices and finite budgets for games. A work bound
 is not a fixed millisecond guarantee. Optional host time limits stop between slices.
 Node counts and seeds are decimal strings to avoid JavaScript precision loss.
 
@@ -76,3 +79,19 @@ engine scores use normalized centipawns, with a separate mate-distance getter.
 The original normalize_fen/legal_moves/play_uci/perft helpers remain available.
 These position-only helpers differ from the engine game API, which enforces
 automatic outcomes and owns repetition history.
+
+## Instant and live controls
+
+`set_mode`, `set_elo`, `set_skill_level`, `set_hash_mib`, `set_multi_pv`, `configure`,
+and `configure_skill` are exported directly. These validated policy changes cancel
+stale analysis; start a new search under the new settings. `start_full` provides the
+maximum supported compute caps without overriding a deliberately limited strength.
+`set_limits` updates a running continuation without restarting it. `limits_json`
+shows requested versus strength-adjusted caps; `skill_level` is absent for a direct
+non-preset Elo target.
+
+The worker `performance` request updates budgets, quantum, reporting, and deadlines
+between slices. Invalid updates preserve active work. See
+[control endpoints](controls.md) for examples, the 21-level table, and exact lifecycle
+semantics. Neither arbitrary-device response latency nor native multi-thread/ISA
+throughput is guaranteed by the WASM build.
