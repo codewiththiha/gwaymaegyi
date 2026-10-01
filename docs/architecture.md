@@ -7,8 +7,8 @@
 | `crates/core` | Domain types, position state, FEN, attacks, legal moves, perft | Clocks, threads, filesystem, platform dispatch |
 | `crates/eval` | Immutable model bytes, incremental accumulators | Search, clocks, platform intrinsics |
 | `crates/search` | Game orchestration, continuations, cache, controls | OS clocks, I/O, threads, protocol text |
-| `crates/engine` | Process arguments, stdout/stderr, native exit codes | Chess rules |
-| `crates/wasm` | Browser-facing conversion and errors | A second board implementation, native assumptions |
+| `crates/engine` | Native UCI actor, clocks, process arguments/I/O | Chess rules or a separate search implementation |
+| `crates/wasm` | Browser bindings, owned result views, conversion/errors | A separate board/search implementation, native assumptions |
 
 Within the core, `board/mod.rs` owns storage and maintains mailbox/bitboard agreement.
 Its child `fen.rs` parses structural invariants, `play.rs` owns state transitions,
@@ -42,3 +42,13 @@ requirements.
 
 Changes that affect decisions require deterministic tests before performance
 optimization. Measure safe alternatives before requesting any unsafe exception.
+
+## Browser scheduling
+
+The worker SDK translates bounded messages into the same portable controller.
+MessageChannel tasks schedule slices without a microtask loop or nested-timer
+throttling. A job identity guards queued callbacks; successful mutations replace
+that identity only after validation, so invalid requests do not cancel valid work.
+The SDK copies/freezes no search internals and frees owned binding reports after
+copying their primitive data. Compiler SIMD128 is optional, not an unsafe backend
+or an unconditional browser requirement.

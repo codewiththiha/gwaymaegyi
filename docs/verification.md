@@ -46,3 +46,56 @@ both perspectives. Incremental refresh comparisons cover captures, en passant,
 promotions, orthodox/overlapping castling, and long deterministic play.
 The native suite now has 24 tests. This run verifies the evaluation on native
 Rust; compiled WASM evaluation/search checks are added with their adapter.
+
+## Playable engine: native, portable WASM, SIMD128
+
+Verified code revision: `f502f2d67a1ef05872ab6d81a2f0d17361894e78`.
+Verified on 2026-10-01 with stable Rust 1.98.1.
+
+- [Native and both WASM backends](https://github.com/codewiththiha/gwaymaegyi/actions/runs/36806278006)
+- [Extended Windows/macOS verification](https://github.com/codewiththiha/gwaymaegyi/actions/runs/36806582387)
+
+All jobs succeeded, including formatting, strict native/WASM lints, documentation,
+38 native tests, 19 Python tooling tests, actual UCI-process smoke checks, and eight
+identical deterministic search snapshots on Linux, Windows, macOS, portable WASM,
+and SIMD128 WASM. Both compiled WASM backends match all 342 raw model scores and
+pass quantum-size invariance, invalid-number/transactional-input, stop, reset,
+terminal-position, and actual-worker stale-suppression/control checks.
+
+Additional regressions cover model changes after captures, root-restricted cache
+bounds, optional root draw claims versus a mating move, automatic-outcome move
+rejection, and contextual score-cache identity. The scalar/incremental evaluation
+checks include castling, promotions, en passant, and long deterministic play.
+
+CI module footprint, including all three models:
+
+| Backend | Raw WASM bytes | Gzip bytes |
+| --- | ---: | ---: |
+| portable | 4,861,881 | 2,795,387 |
+| SIMD128 | 4,861,942 | 2,795,457 |
+
+Packages contain native/browser/Node deliverables and applicable license notices.
+The browser bootstrap is packaged; actual worker scheduling is exercised through
+Node worker_threads with the compiled WASM, not a mocked search backend. This is
+not a claim of a full browser-device matrix, calibrated Elo, or literal error-free
+software. The declared language minimum remains distinct from the tested current
+stable compiler. Parallel native search and real tablebase probes are not implemented.
+
+## Release optimization measurement
+
+At the verified code revision, a local Node v20.20.2 benchmark on an Intel Xeon
+2.60 GHz virtual CPU compared the former size-oriented WASM setting with level 3.
+Each sample used a fresh default engine, balanced mode, start position, depth 6,
+and 100,000-node cap; three warmups preceded eight timing samples. Both settings
+finished the same 5,587 nodes. Engine construction is outside the timed interval.
+
+| Setting | Median elapsed ms | Packaged WASM bytes |
+| --- | ---: | ---: |
+| opt-level s | 85.0932 | 4,859,971 |
+| opt-level 3 | 54.5062 | 4,861,881 |
+
+This sample shows about 36% lower search latency for 1,910 extra module bytes.
+It is a single-position virtual-machine measurement, not a universal throughput
+claim or strength estimate. SIMD128 versus portable speed has not been measured
+in this comparison. Run `node scripts/bench_wasm.cjs PATH_TO_NODE_BINDINGS` to repeat
+on deployment hardware; preserve correctness snapshots when changing profiles.

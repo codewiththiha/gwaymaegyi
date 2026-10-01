@@ -1,22 +1,23 @@
 # Roadmap
 
-Each increment must close its verification gate before its completion is claimed.
-Do not turn this list into empty placeholder crates.
+Close each verification gate before claiming completion. Do not create empty
+placeholder crates for future work. Evidence belongs in [verification](verification.md).
 
-| Increment | Acceptance gate |
-| --- | --- |
-| Portable rules and interfaces | Standard perft suite, Chess960 edge cases, invalid-input tests, native CLI and actual WASM runtime checks |
-| Position identity and game state | Incremental/recomputed hashes agree; repetition and draw-rule tests |
-| Evaluation | Scalar correctness, full/incremental accumulator agreement, native/WASM evaluation fixtures |
-| Single-worker search | Deterministic score/move/node fixtures; terminal positions and bounded limits |
-| Protocol and browser search | UCI transcript tests; responsive stop/reset; worker message tests |
-| Parallel native search | Race-free ownership and shutdown; repeatable match testing |
-| Endgame probing and skill control | Backend fixtures, option tests, legal move selection |
-| Data generation and tools | Reproducible seeds, round-trip datasets, bounded resource use |
-| Measured optimization | Throughput and strength comparisons; native and WASM correctness retained |
+| Increment | Acceptance gate | State |
+| --- | --- | --- |
+| Portable rules/interfaces | Standard perft, Chess960 boundaries, invalid inputs, compiled WASM | Verified |
+| Position identity/game state | Incremental/recomputed keys, claims, automatic outcomes, history rollback | Verified |
+| Evaluation | Exact scalar scores, incremental refresh agreement, native/WASM fixtures | Verified |
+| Single-worker search | Deterministic score/move/node snapshots, terminals, bounded limits | Verified |
+| Native/browser control | Real UCI process tests, actual worker stop/reset, stale suppression, transactional inputs | Verified |
+| Playing controls | Validated full/approximate strength, modes, reproducible decisions | Implemented and verified; ratings uncalibrated |
+| Platform portability | Windows/macOS lints, tests, protocol and snapshot checks | Verified |
+| Parallel native search | Race-free ownership/shutdown and repeatable match testing | Future work |
+| Endgame probing | Real backend fixtures, option tests, legal root selection | Future work |
+| Data generation/tools | Reproducible seeds, round-trip datasets, bounded resources | Future work |
+| Strength calibration | Controlled matches against rated opponents, reproducible rating estimates | Future work |
+| Measured optimization | Throughput/memory and match comparisons while retaining native/WASM correctness | Ongoing |
 
-The rules foundation gate is verified on Linux and in the compiled WASM module.
-See [verification](verification.md) for the source revision and checks.
-Position identity, game state, and scalar evaluation are verified. Cooperative
-single-worker search is implemented; its acceptance checks are now running.
-Protocol and compiled WASM search adapters follow that gate.
+Portable and SIMD128 WASM builds use optimized compiler settings and pass the same
+behavioral checks. This is not evidence of a measured strength rating or a particular
+speed improvement. Keep correctness tests and calibration/performance evidence separate.

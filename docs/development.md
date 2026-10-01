@@ -20,7 +20,9 @@ Clippy enables all, pedantic, and nursery groups; unwrap/expect and undocumented
 unsafe blocks are denied. Unsafe code is forbidden throughout the workspace.
 Compiler compatibility/style warnings and documentation warnings are also checked.
 Public error documentation uses plain prose; those modules explicitly expect only
-Clippy's Markdown-heading requirement. All warning groups stay enabled.
+Clippy's Markdown-heading requirement. Binding methods additionally expect only
+individual lints that conflict with the ABI (owned arrays and non-const exports).
+All warning groups stay enabled.
 
 ## WASM runtime
 
@@ -29,19 +31,37 @@ After the build and matching binding-tool install described in the README:
 ```sh
 wasm-bindgen target/wasm32-unknown-unknown/wasm-release/gwaymaegyi_wasm.wasm --target nodejs --out-dir pkg/node
 node tests/wasm.cjs pkg/node/gwaymaegyi_wasm.js
+node tests/wasm_search.cjs pkg/node/gwaymaegyi_wasm.js portable
+node tests/worker.cjs pkg/node/gwaymaegyi_wasm.js
 ```
 
-Browser and Node packages contain the same engine module. Counts use decimal
+Repeat with `RUSTFLAGS='-Dwarnings -Ctarget-feature=+simd128'` and the `simd128`
+argument to verify that backend. CI executes both independently. Browser and Node
+packages contain the same engine module. Counts use decimal
 strings at the JavaScript boundary to preserve full integer precision.
+
+## Native protocol and deterministic snapshots
+
+```sh
+cargo build --locked --release -p gwaymaegyi
+python3 tests/uci_smoke.py target/release/gwaymaegyi
+cargo run --locked -q -p gwaymaegyi-search --example emit_fixtures > /tmp/search.json
+python3 scripts/check_search_fixtures.py fixtures/search.json /tmp/search.json
+```
+
+Snapshots cover all modes, approximate/full strength, mate, promotion, Chess960,
+root filters, and model phase changes. Inspect changed decisions/node counts before
+intentionally regenerating `fixtures/search.json`. Do not update fixtures merely to
+hide a failed check. The compiled WASM backends compare against these same results.
 
 ## Automated checks
 
-The CI workflow runs formatting/tooling, native lint/tests, and WASM lint/runtime
-in parallel. Actions are pinned to immutable revisions; dependencies use a checked-in
-lockfile. Dependency caches are separate for native and WASM and saved only on main.
+The CI workflow runs formatting/tooling, native lint/tests, and the portable/SIMD128
+WASM lint/runtime matrix in parallel. Actions are pinned to immutable revisions; dependencies use a checked-in
+lockfile. Dependency caches are separate for native and each WASM backend and saved only on main.
 Obsolete runs are cancelled. Builds expose small, short-retention artifacts rather
-than generated files in Git. A manual `extended` input also tests Windows and macOS.
-The workflow is callable from another workflow without custom credentials.
+than generated files in Git. A manual `extended` input also tests Windows/macOS protocols and snapshots.
+Artifacts include applicable model/license notices. The workflow is callable from another workflow without custom credentials.
 
 ## Watching CI
 
