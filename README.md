@@ -14,6 +14,8 @@ default rustfmt, and strict compiler/Clippy checks apply throughout.
   caching, reductions/re-search, quiet history, distinct-root MultiPV, and limits.
 - **Resumable search slices**: progress survives yields; stop/reset does not restart
   an interrupted recursive search. Native and browser adapters use the same engine.
+- Validated per-engine search behaviors/parameters and resumable aspiration retries.
+- Native independent-request parallel analysis with bounded worker/hash resources.
 - Native UCI with clocks, root restrictions, ponder, validated options, and legal
   early-stop fallbacks. Optimized **portable and SIMD128 WASM packages**, generated
   TypeScript declarations, and a worker SDK with stale-result suppression.
@@ -29,7 +31,8 @@ See [control endpoints and skill presets](docs/controls.md) for the complete
 Rust/UCI/WASM access matrix and live compute controls.
 
 The working engine and interfaces are not a claim of complete feature, search,
-or measured strength parity with another engine. The current search is single-worker. Parallel native search, tablebase probing,
+or measured strength parity with another engine. Each position currently uses single-worker search; independent native batch requests
+can run in parallel. Single-position SMP, tablebase probing,
 and controlled strength calibration remain future work; see the
 [roadmap](docs/roadmap.md) and [verification evidence](docs/verification.md).
 
@@ -117,6 +120,7 @@ raw evaluation, and the original position-only helpers remain available.
 
 ## Development and licensing
 
+[Search controls and CPU integration](docs/search-controls.md) ·
 [Architecture](docs/architecture.md) · [Checks and CI logs](docs/development.md) ·
 [Roadmap](docs/roadmap.md) · [Verification](docs/verification.md) ·
 [Contributor/agent guide](agents.md)
