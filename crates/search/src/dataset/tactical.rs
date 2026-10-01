@@ -1,8 +1,8 @@
 //! King-danger, opposite-castling storm, shelter, attack-vector, and outpost predicates.
 
-use gwaymaegyi_core::{Board, Color, File, PieceKind, Rank, Square};
+use gwaymaegyi_core::{Board, Color, PieceKind, Square};
 
-use super::filter::{flip_vertical, standard_material};
+use super::filter::standard_material;
 
 pub(super) const fn both_sides_have_queens(board: &Board) -> bool {
     !board.pieces(Color::White, PieceKind::Queen).is_empty()
@@ -77,7 +77,7 @@ fn side_king_in_danger(board: &Board, defender: Color) -> bool {
 
 pub(super) fn matches_opposite_castling_storm(board: &Board) -> bool {
     let (total_material, _) = standard_material(board);
-    if total_material <= 4_000 || !both_sides_have_queens(board) || !board.castling().is_empty() {
+    if total_material <= 4_000 || !both_sides_have_queens(board) || board.has_castling_rights() {
         return false;
     }
     let Some(white_king) = king_square(board, Color::White) else {
@@ -86,8 +86,8 @@ pub(super) fn matches_opposite_castling_storm(board: &Board) -> bool {
     let Some(black_king) = king_square(board, Color::Black) else {
         return false;
     };
-    let wf = white_king.file().index();
-    let bf = black_king.file().index();
+    let wf = white_king.file();
+    let bf = black_king.file();
     let opposite_wings = (wf <= 3 && bf >= 4) || (wf >= 4 && bf <= 3);
     if !opposite_wings {
         return false;
@@ -139,15 +139,15 @@ fn no_shelter_score(board: &Board, defender: Color) -> i32 {
         (0, 1),
         (1, 1),
     ];
-    if board.castling().has_color(defender) {
+    if board.has_castling_rights_for(defender) {
         return 0;
     }
     let Some(king) = king_square(board, defender) else {
         return 0;
     };
-    let back_rank = match defender {
-        Color::White => Rank::First,
-        Color::Black => Rank::Eighth,
+    let back_rank: u8 = match defender {
+        Color::White => 0,
+        Color::Black => 7,
     };
     let mut total = 0;
     for (df, dr) in DIRS {
@@ -204,11 +204,11 @@ fn potential_attack_score(board: &Board, defender: Color) -> i32 {
         Color::White => 1,
         Color::Black => -1,
     };
-    let kf = i32::from(king.file().index());
-    let kr = i32::from(king.rank().index());
+    let kf = i32::from(king.file());
+    let kr = i32::from(king.rank());
     let attacker = defender.opposite();
     let mut score = 0;
-    for square in board.colors(attacker) {
+    for square in board.side_pieces(attacker) {
         let Some(piece) = board.piece_on(square) else {
             continue;
         };
@@ -222,8 +222,8 @@ fn potential_attack_score(board: &Board, defender: Color) -> i32 {
             .into_iter()
             .filter_map(|(df, dr)| offset_square(king, df, dr * forward))
             .any(|zone_sq| zone_sq == square);
-        let sf = i32::from(square.file().index());
-        let sr = i32::from(square.rank().index());
+        let sf = i32::from(square.file());
+        let sr = i32::from(square.rank());
         let df = (kf - sf).abs();
         let dr = (kr - sr).abs();
         let aligned = match piece.kind {
@@ -249,18 +249,7 @@ pub(super) fn matches_monster_outpost(board: &Board) -> bool {
 }
 
 fn has_monster_outpost(board: &Board, color: Color) -> bool {
-    const WHITE_OUTPOSTS: [Square; 10] = [
-        Square::B6,
-        Square::C6,
-        Square::D6,
-        Square::E6,
-        Square::F6,
-        Square::G6,
-        Square::C7,
-        Square::D7,
-        Square::E7,
-        Square::F7,
-    ];
+    const WHITE_OUTPOST_INDICES: [u8; 10] = [41, 42, 43, 44, 45, 46, 50, 51, 52, 53];
     let opponent = color.opposite();
     if !board.pieces(opponent, PieceKind::Bishop).is_empty() {
         return false;
@@ -271,10 +260,13 @@ fn has_monster_outpost(board: &Board, color: Color) -> bool {
         Color::White => 1,
         Color::Black => -1,
     };
-    for base in WHITE_OUTPOSTS {
-        let square = match color {
-            Color::White => base,
-            Color::Black => flip_vertical(base),
+    for base_index in WHITE_OUTPOST_INDICES {
+        let index = match color {
+            Color::White => base_index,
+            Color::Black => base_index ^ 56,
+        };
+        let Some(square) = Square::from_index(index) else {
+            continue;
         };
         if !minors.contains(square) {
             continue;
@@ -290,10 +282,12 @@ fn has_monster_outpost(board: &Board, color: Color) -> bool {
     false
 }
 
-pub(super) fn offset_square(origin: Square, delta_file: i8, delta_rank: i8) -> Option<Square> {
-    let file = i8::try_from(origin.file().index()).ok()? + delta_file;
-    let rank = i8::try_from(origin.rank().index()).ok()? + delta_rank;
-    let file = File::from_index(u8::try_from(file).ok()?)?;
-    let rank = Rank::from_index(u8::try_from(rank).ok()?)?;
-    Some(Square::from_coords(file, rank))
+pub(super) const fn offset_square(origin: Square, delta_file: i8, delta_rank: i8) -> Option<Square> {
+    let Some(file) = origin.file().checked_add_signed(delta_file) else {
+        return None;
+    };
+    let Some(rank) = origin.rank().checked_add_signed(delta_rank) else {
+        return None;
+    };
+    Square::new(file, rank)
 }

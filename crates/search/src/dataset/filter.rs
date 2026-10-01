@@ -5,7 +5,7 @@
     reason = "Filter parsing and line processing errors are described in plain prose."
 )]
 
-use gwaymaegyi_core::{Board, Color, File, PieceKind, Rank, Square};
+use gwaymaegyi_core::{Board, Color, PieceKind, Square};
 
 use super::{
     compensation::matches_tiered_sacrifice_compensation,
@@ -202,34 +202,20 @@ fn matches_space_advantage(board: &Board) -> bool {
 }
 
 fn space_score(board: &Board, color: Color) -> i32 {
-    const WHITE_CENTER: [Square; 18] = [
-        Square::D3,
-        Square::E3,
-        Square::B4,
-        Square::C4,
-        Square::D4,
-        Square::E4,
-        Square::F4,
-        Square::G4,
-        Square::B5,
-        Square::C5,
-        Square::D5,
-        Square::E5,
-        Square::F5,
-        Square::G5,
-        Square::C6,
-        Square::D6,
-        Square::E6,
-        Square::F6,
+    const WHITE_CENTER_INDICES: [u8; 18] = [
+        19, 20, 25, 26, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 42, 43, 44, 45,
     ];
     let mut score = 0;
-    for base in WHITE_CENTER {
-        let square = match color {
-            Color::White => base,
-            Color::Black => flip_vertical(base),
+    for base_index in WHITE_CENTER_INDICES {
+        let index = match color {
+            Color::White => base_index,
+            Color::Black => base_index ^ 56,
         };
-        if board.colors(color).contains(square) {
-            let rank = i32::from(square.rank().index());
+        let Some(square) = Square::from_index(index) else {
+            continue;
+        };
+        if board.side_pieces(color).contains(square) {
+            let rank = i32::from(square.rank());
             let bonus = match color {
                 Color::White => rank - 2,
                 Color::Black => 5 - rank,
@@ -239,15 +225,16 @@ fn space_score(board: &Board, color: Color) -> i32 {
     }
     let occupied = board.occupied();
     for file_index in 0..7_u8 {
-        let Some(file) = File::from_index(file_index) else {
+        let (first_rank, second_rank) = match color {
+            Color::White => (1_u8, 2_u8),
+            Color::Black => (6_u8, 5_u8),
+        };
+        let Some(first) = Square::new(file_index, first_rank) else {
             continue;
         };
-        let (first_rank, second_rank) = match color {
-            Color::White => (Rank::Second, Rank::Third),
-            Color::Black => (Rank::Seventh, Rank::Sixth),
+        let Some(second) = Square::new(file_index, second_rank) else {
+            continue;
         };
-        let first = Square::from_coords(file, first_rank);
-        let second = Square::from_coords(file, second_rank);
         if !occupied.contains(first) && !occupied.contains(second) {
             score += 1;
         }
@@ -264,26 +251,8 @@ fn matches_development_imbalance(board: &Board) -> bool {
 }
 
 fn development_penalty(board: &Board, color: Color) -> i32 {
-    const WHITE_UNDEVELOPED_MINORS: [Square; 18] = [
-        Square::A1,
-        Square::B1,
-        Square::C1,
-        Square::D1,
-        Square::E1,
-        Square::F1,
-        Square::G1,
-        Square::H1,
-        Square::A2,
-        Square::B2,
-        Square::C2,
-        Square::D2,
-        Square::E2,
-        Square::F2,
-        Square::G2,
-        Square::H2,
-        Square::A3,
-        Square::H3,
-    ];
+    const WHITE_UNDEVELOPED_INDICES: [u8; 18] =
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 23];
     const KING_PENALTY_WHITE_PERSPECTIVE: [i32; 64] = [
         0, 0, 0, 2, 2, 2, 0, 0, 1, 1, 2, 4, 4, 3, 1, 1, 3, 4, 5, 6, 6, 5, 4, 3, 6, 6, 6, 6, 6, 6,
         6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
@@ -291,35 +260,40 @@ fn development_penalty(board: &Board, color: Color) -> i32 {
     ];
     let minors = board.pieces(color, PieceKind::Knight) | board.pieces(color, PieceKind::Bishop);
     let mut penalty = 0;
-    for base in WHITE_UNDEVELOPED_MINORS {
-        let square = match color {
-            Color::White => base,
-            Color::Black => flip_vertical(base),
+    for base_index in WHITE_UNDEVELOPED_INDICES {
+        let index = match color {
+            Color::White => base_index,
+            Color::Black => base_index ^ 56,
         };
-        if minors.contains(square) {
+        if let Some(square) = Square::from_index(index)
+            && minors.contains(square)
+        {
             penalty += 1;
         }
     }
     if let Some(king) = board.pieces(color, PieceKind::King).into_iter().next() {
         let lookup = match color {
             Color::White => king.index(),
-            Color::Black => flip_vertical(king).index(),
+            Color::Black => king.index() ^ 56,
         };
         penalty += KING_PENALTY_WHITE_PERSPECTIVE[lookup];
     }
-    let friendly = board.colors(color);
+    let friendly = board.side_pieces(color);
     let rooks = board.pieces(color, PieceKind::Rook);
-    let corners = match color {
-        Color::White => [
-            (Square::A1, Square::B1, Square::A2),
-            (Square::H1, Square::G1, Square::H2),
-        ],
-        Color::Black => [
-            (Square::A8, Square::B8, Square::A7),
-            (Square::H8, Square::G8, Square::H7),
-        ],
+    let corners: [(u8, u8, u8); 2] = match color {
+        Color::White => [(0, 1, 8), (7, 6, 15)],
+        Color::Black => [(56, 57, 48), (63, 62, 55)],
     };
-    for (corner, side_neighbor, front_neighbor) in corners {
+    for (corner_idx, side_idx, front_idx) in corners {
+        let Some(corner) = Square::from_index(corner_idx) else {
+            continue;
+        };
+        let Some(side_neighbor) = Square::from_index(side_idx) else {
+            continue;
+        };
+        let Some(front_neighbor) = Square::from_index(front_idx) else {
+            continue;
+        };
         if rooks.contains(corner)
             && friendly.contains(side_neighbor)
             && friendly.contains(front_neighbor)
@@ -328,12 +302,4 @@ fn development_penalty(board: &Board, color: Color) -> i32 {
         }
     }
     penalty
-}
-
-pub(super) const fn flip_vertical(square: Square) -> Square {
-    let index = square.index() ^ 56;
-    match Square::from_index(index) {
-        Some(flipped) => flipped,
-        None => Square::A1,
-    }
 }

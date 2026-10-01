@@ -147,7 +147,8 @@ pub fn filter_training_line(line: &str, filter: &str) -> Result<bool, JsError> {
 #[wasm_bindgen]
 pub fn encode_training_line(line: &str) -> Result<Vec<u8>, JsError> {
     let record: gwaymaegyi_search::TrainingRecord = line.parse().map_err(js_error)?;
-    let packed = gwaymaegyi_search::BulletRecord::from_training_record(&record).map_err(js_error)?;
+    let packed =
+        gwaymaegyi_search::BulletRecord::from_training_record(&record).map_err(js_error)?;
     Ok(packed.to_bytes().to_vec())
 }
 
