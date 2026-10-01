@@ -15,7 +15,7 @@ placeholder crates for future work. Evidence belongs in [verification](verificat
 | Native parallel analysis | Independent-position batch workers and single-position SMP (`Threads`, `SharedTable`, `analyze_parallel`) are implemented | Verified |
 | Endgame probing | Native WDL and rule-50-aware single-PV root DTZ; optional KRvK fixture and UCI path tests | Broader supplied-table corpus and additional edge cases |
 | Data generation/tools | Seeded self-play (`datagen`), packed 32-byte record conversion (`convert`), 11 tactical/aggressive filters (`filter`), and 50-position `bench` suite | Verified |
-| Native resource ranges | Hash 128 GiB, MultiPV 255, Threads 1,024, depth 127; browser-specific ceilings and expanded-range regressions | Implemented; CI verification pending |
+| Native resource ranges | Hash 128 GiB, MultiPV 255, Threads 1,024, depth 127; browser-specific ceilings and expanded-range regressions | Verified on native Linux and both WASM backends |
 | Strength calibration | Controlled matches against rated opponents, reproducible rating estimates | Future work |
 | Measured optimization | Throughput/memory and match comparisons while retaining native/WASM correctness | Ongoing |
 

@@ -21,7 +21,7 @@ and executed acceptance evidence before it becomes verified.
 | Skill controls | Verified nominal levels 1–21 and direct Elo targets | Controlled playing-strength calibration |
 | Tunable parameters | 38 validated numeric parameters, eleven behavior switches, and `printparams` tuning export verified | Controlled tuning runs |
 | Native multi-worker search | Configurable independent-request batch workers and single-position SMP (`Threads`, lock-striped `SharedTable`, `analyze_parallel`) verified | Scaling measurements on high-core hosts |
-| Resource controls | Native Hash 128 GiB, MultiPV 255, Threads 1,024, depth 127; separate smaller WASM limits | Expanded-range CI verification and high-resource host measurements |
+| Resource controls | Native Hash 128 GiB, MultiPV 255, Threads 1,024, depth 127; separate smaller WASM limits and expanded-range regressions verified | High-resource host measurements |
 | Endgame tables | Native Pyrrhic/Fathom WDL interior probes and rule-50-aware root DTZ selection with `.rtbz` data; UCI path, batch sharing and hit counters | Broader supplied-table coverage; interior WDL skips castling/nonzero clocks; root DTZ skips castling; no bundled tables |
 | Benchmarks | Reproducible 50-position full-engine `bench` suite across CLI, UCI, and WASM plus perft and WASM timing samples | Ongoing hardware comparisons |
 | Data generation | Seeded self-play (`datagen`) with opening normalization, early `MultiPV` randomization, quiet filtering, and adjudication verified | Large-scale training corpus generation |

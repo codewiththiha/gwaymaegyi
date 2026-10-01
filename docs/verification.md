@@ -182,3 +182,38 @@ and `gwaymaegyi-wasm`:
   single-position parallel analysis (`analyze_parallel`), UCI `Threads` (1–16),
   and seeded self-play training data generation (`datagen`).
 
+## Full native resource ranges with separate browser ceilings
+
+Verified revision: `c40755f58d5e1f2faa4d0d65135e5e42db471665`.
+[CI evidence](https://github.com/codewiththiha/gwaymaegyi/actions/runs/36886938288).
+Formatting/tooling, native Linux lint/tests/runtime, portable WASM, and SIMD128
+WASM jobs passed. The optional Windows/macOS matrix was not run for this revision.
+
+Native ranges now expose Hash 1–131,072 MiB, MultiPV 1–255, Threads 1–1,024,
+search depth 1–127, and positive unsigned 32-bit slice work. Native default
+search limits request full depth and unsigned 64-bit nodes. The separate 256 MiB
+parallel hash ceiling, small diagnostic-depth ceilings, 100,000-record datagen
+ceiling, and one-day native clock ceiling are removed. WASM retains Hash 64 MiB,
+MultiPV 32, depth 64, and 65,536 work units per synchronous slice.
+
+Executed expanded-range regressions cover:
+
+- Maximum Hash/MultiPV/thread settings and transactional rejection above ranges;
+  maximum Hash and 1,024 threads were validated without allocating those resources.
+- Actual private/shared 65 MiB hash requests and four batch workers requesting
+  260 MiB combined hash, exceeding the previous aggregate ceiling.
+- MultiPV 255 requests producing all distinct legal roots, including a position
+  with more than 64 legal root moves, and correct clamping to 20 starting moves.
+- Completed depth-127 search of a restricted mate-in-one line, full-depth/move
+  reduction-table indexing, and native full-range slice validation.
+- Actual 17-worker SMP, UCI SMP stop, real-process option discovery/MultiPV/deep
+  search, and native perft accepting depths above eight.
+- Already-cancelled datagen requests above 100,000 records and at `usize::MAX`
+  returning without allocating workers or output capacity.
+- Maximum native clock/increment arithmetic without a one-day clamp or overflow.
+- Direct WASM and worker acceptance of MultiPV 32, rejection of native-only
+  larger Hash/MultiPV/depth values, rollback, and unchanged native/WASM fixtures.
+
+All eight deterministic search snapshots and 342 raw WASM evaluation scores
+remain matched. These are configuration/correctness checks, not a 128 GiB memory
+stress test, a 1,024-thread scaling benchmark, or measured playing-strength parity.
