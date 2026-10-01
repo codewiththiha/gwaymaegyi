@@ -12,6 +12,7 @@ cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 cargo test --locked --workspace --all-targets --all-features
 cargo doc --locked --workspace --no-deps
 cargo clippy --locked -p gwaymaegyi-wasm --target wasm32-unknown-unknown --all-targets -- -D warnings
+python3 scripts/check_paths.py
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 

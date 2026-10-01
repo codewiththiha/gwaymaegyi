@@ -43,6 +43,8 @@ jobs:
         run: rustup toolchain install stable --profile minimal --component rustfmt --no-self-update
       - name: Validate commit messages
         run: python3 scripts/check_commit.py
+      - name: Check portable repository paths
+        run: python3 scripts/check_paths.py
       - name: Test Python tooling
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
       - name: Check default Rust formatting
