@@ -95,7 +95,9 @@ impl Task {
                 });
             }
             frame.alpha = frame.alpha.max(frame.best);
-            frame.candidates.retain(|item| item.is_capture);
+            frame
+                .candidates
+                .retain(|item| item.is_capture || !item.is_quiet);
             return Action::Keep;
         }
         if let Some(action) = Self::reverse_futility(frame, tuning) {
@@ -125,7 +127,10 @@ impl Task {
 
     fn terminal_or_draw(&self, frame: &mut Frame, count: usize) -> Option<Action> {
         if count == 0 {
-            let score = if frame.flags.in_check() {
+            let score = if frame.excluded.is_some() {
+                frame.cache_policy = CachePolicy::Skip;
+                frame.alpha
+            } else if frame.flags.in_check() {
                 i32::from(frame.ply) - MATE
             } else {
                 0

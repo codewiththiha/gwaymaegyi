@@ -139,7 +139,8 @@ impl Worker {
                     if active.state == PlayState::Ponder && active.original_opt > 0 {
                         active.state = PlayState::Normal;
                         let now = Instant::now();
-                        active.deadline = now.checked_add(Duration::from_millis(active.original_opt));
+                        active.deadline =
+                            now.checked_add(Duration::from_millis(active.original_opt));
                         active.hard = active.deadline;
                     }
                 }

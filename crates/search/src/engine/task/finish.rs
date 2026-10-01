@@ -241,7 +241,8 @@ impl Task {
                     mistake = Some(eval_diff);
                 }
             }
-            if ply >= 7 && eval_diff > 0 && eval_diff < self.style_loss + 10 && best.score_cp < 5000 {
+            if ply >= 7 && eval_diff > 0 && eval_diff < self.style_loss + 10 && best.score_cp < 5000
+            {
                 best_index = index;
                 mistake = Some(eval_diff);
             }

@@ -81,7 +81,7 @@ impl Task {
         let path = self
             .frames
             .iter()
-            .skip(1)
+            .filter(|parent| parent.ply > 0 && parent.ply < frame.ply && parent.excluded.is_none())
             .rev()
             .map(|parent| parent.board.key().full());
         let mut base = self.game.position_history();
@@ -96,36 +96,43 @@ impl Task {
             .count()
     }
 
-    /// The two previous plies for continuation-history scoring and updates.
+    /// Actual path moves, never a parent's earlier best candidate.
     pub(super) fn priors(&self) -> crate::engine::history::PriorMoves {
-        let prior = |offset: usize| -> crate::engine::history::PriorMove {
-            self.frames
-                .get(self.frames.len().saturating_sub(offset))
-                .and_then(|parent| parent.best_move)
-                .map(|chess_move| crate::engine::history::PriorMove {
-                    piece: parent_board_piece(
-                        self.frames.len().saturating_sub(offset),
-                        &self.frames,
-                        chess_move,
-                    ),
+        use crate::engine::{
+            frame::{Probe, Stage},
+            history::{PriorMove, PriorMoves},
+        };
+        let path: Vec<_> = self
+            .frames
+            .iter()
+            .filter_map(|parent| {
+                let (Stage::Waiting(pending) | Stage::Returned(pending, _)) = &parent.stage else {
+                    return None;
+                };
+                if pending.probe == Probe::Singular {
+                    return None;
+                }
+                if pending.probe == Probe::Null {
+                    return Some(PriorMove::default());
+                }
+                let chess_move = parent.candidates.get(pending.index)?.chess_move();
+                Some(PriorMove {
+                    piece: parent.board.piece_on(chess_move.from()),
                     to: Some(chess_move.to()),
                 })
+            })
+            .collect();
+        let prior = |offset: usize| {
+            path.len()
+                .checked_sub(offset)
+                .and_then(|index| path.get(index))
+                .copied()
                 .unwrap_or_default()
         };
-        crate::engine::history::PriorMoves {
+        PriorMoves {
             their_last: prior(1),
             our_last: prior(2),
             our_earlier: prior(4),
         }
     }
-}
-
-fn parent_board_piece(
-    index: usize,
-    frames: &[Frame],
-    chess_move: gwaymaegyi_core::Move,
-) -> Option<gwaymaegyi_core::Piece> {
-    frames
-        .get(index)
-        .and_then(|frame| frame.board.piece_on(chess_move.from()))
 }

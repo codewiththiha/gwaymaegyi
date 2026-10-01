@@ -168,8 +168,7 @@ impl Task {
                         };
                         if parent.ply == 0 {
                             if let Some((index, base)) = self.root_base.take() {
-                                self.root_nodes[index] +=
-                                    self.report.nodes.saturating_sub(base);
+                                self.root_nodes[index] += self.report.nodes.saturating_sub(base);
                             }
                         }
                         parent.stage = Stage::Returned(pending, result);
@@ -275,7 +274,7 @@ impl Task {
             board,
             accumulator,
             pending.depth,
-            parent.ply + 1,
+            parent.ply + u8::from(pending.probe != Probe::Singular),
             window,
             parent.flags.pv_node() && pending.probe == Probe::Full,
             parent.flags.synthetic() || pending.probe == Probe::Null,
@@ -342,6 +341,59 @@ mod tests {
             child.accumulator.score(),
             gwaymaegyi_eval::Accumulator::new(&child.board, gwaymaegyi_eval::Model::Endgame)
                 .score()
+        );
+        Ok(())
+    }
+    #[test]
+    fn singular_verification_does_not_consume_a_game_ply() -> Result<(), Box<dyn Error>> {
+        use crate::engine::frame::{Pending, Probe};
+        let game = Game::start()?;
+        let mut task = Task::new(&game, Options::default(), SearchLimits::default(), &[], 0)?;
+        task.start_pass();
+        let parent = task.frames.pop().ok_or(EngineError::InternalState)?;
+        let pending = Pending {
+            index: 0,
+            depth: 1,
+            probe: Probe::Singular,
+            beta: 12,
+            window: [11, 12],
+        };
+        let child = task.child(&parent, &pending)?;
+        assert_eq!(child.ply, parent.ply);
+        assert_eq!(child.board, parent.board);
+        Ok(())
+    }
+
+    #[test]
+    fn prior_history_tracks_the_scheduled_move_not_an_earlier_best() -> Result<(), Box<dyn Error>> {
+        use crate::engine::frame::{Pending, Probe, ScoredMove};
+        let game = Game::start()?;
+        let mut task = Task::new(&game, Options::default(), SearchLimits::default(), &[], 0)?;
+        task.start_pass();
+        let parent = task.frames.last_mut().ok_or(EngineError::InternalState)?;
+        let successor = game
+            .board()
+            .legal_successors()
+            .into_iter()
+            .find(|child| child.chess_move().to_uci(false) == "e2e4")
+            .ok_or(EngineError::InternalState)?;
+        parent.candidates = vec![ScoredMove {
+            successor,
+            score: 0,
+            is_capture: false,
+            is_quiet: true,
+        }];
+        parent.best_move = Some(game.board().resolve_uci("d2d4", false)?);
+        parent.stage = Stage::Waiting(Pending {
+            index: 0,
+            depth: 1,
+            probe: Probe::Full,
+            beta: 12,
+            window: [-12, -11],
+        });
+        assert_eq!(
+            task.priors().their_last.to,
+            Some(successor.chess_move().to())
         );
         Ok(())
     }
