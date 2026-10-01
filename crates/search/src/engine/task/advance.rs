@@ -26,9 +26,13 @@ impl Task {
         frame.in_check = frame.board.in_check(frame.board.side_to_move());
         frame.candidates = frame.board.legal_successors();
         if frame.ply == 0 {
-            frame
-                .candidates
-                .retain(|child| !self.excluded.contains(&child.chess_move()));
+            if !self.excluded.is_empty() || frame.candidates.len() != self.root_moves.len() {
+                frame.cache_policy = CachePolicy::Skip;
+            }
+            frame.candidates.retain(|child| {
+                self.root_moves.contains(&child.chess_move())
+                    && !self.excluded.contains(&child.chess_move())
+            });
         }
         if frame.candidates.is_empty() {
             let score = if frame.in_check {

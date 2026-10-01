@@ -24,6 +24,7 @@ pub(super) struct Task {
     pub lines: Vec<PrincipalVariation>,
     pub excluded: Vec<Move>,
     pub root: Board,
+    pub root_moves: Vec<Move>,
 }
 
 impl Task {
@@ -31,14 +32,18 @@ impl Task {
         game: &Game,
         options: Options,
         limits: SearchLimits,
+        allowed: &[Move],
     ) -> Result<Self, EngineError> {
         let root = *game.board();
         let outcome = game.outcome();
-        let best_move = if outcome == Outcome::Ongoing {
-            root.legal_moves().first().copied()
+        let root_moves = if outcome != Outcome::Ongoing {
+            Vec::new()
+        } else if allowed.is_empty() {
+            root.legal_moves()
         } else {
-            None
+            allowed.to_vec()
         };
+        let best_move = root_moves.first().copied();
         let (status, score_cp) = match outcome {
             Outcome::Ongoing => (SearchStatus::Running, None),
             Outcome::Checkmate { .. } => (
@@ -66,6 +71,7 @@ impl Task {
             lines: Vec::new(),
             excluded: Vec::new(),
             root,
+            root_moves,
         })
     }
 
@@ -182,5 +188,33 @@ impl Task {
             parent.synthetic || null,
             context,
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Task;
+    use crate::{
+        EngineError, Options, SearchLimits,
+        engine::{frame::CachePolicy, table::Cache},
+    };
+    use gwaymaegyi_core::Game;
+    use std::error::Error;
+
+    #[test]
+    fn restricted_root_bounds_never_enter_the_full_position_cache() -> Result<(), Box<dyn Error>> {
+        let game = Game::start()?;
+        let mut task = Task::new(&game, Options::default(), SearchLimits::default(), &[])?;
+        let mut cache = Cache::new(1)?;
+        task.start_pass();
+        let mut frame = task.frames.pop().ok_or(EngineError::InternalState)?;
+        task.advance(&mut frame, &mut cache)?;
+        assert_eq!(frame.cache_policy, CachePolicy::Write);
+        task.excluded.push(game.board().resolve_uci("e2e4", false)?);
+        task.start_pass();
+        let mut excluded = task.frames.pop().ok_or(EngineError::InternalState)?;
+        task.advance(&mut excluded, &mut cache)?;
+        assert_eq!(excluded.cache_policy, CachePolicy::Skip);
+        Ok(())
     }
 }

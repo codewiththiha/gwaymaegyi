@@ -96,8 +96,24 @@ impl Engine {
 
     /// Invalid limits do not interrupt a currently valid search.
     pub fn start(&mut self, limits: SearchLimits) -> Result<(), EngineError> {
+        self.start_moves(limits, &[])
+    }
+
+    /// Root notation is validated completely before replacing an active continuation.
+    pub fn start_moves(&mut self, limits: SearchLimits, roots: &[&str]) -> Result<(), EngineError> {
         let limits = limits.validate()?;
-        let task = Task::new(&self.game, self.options, limits)?;
+        let mut allowed = Vec::new();
+        for notation in roots {
+            let chess_move = self
+                .game
+                .board()
+                .resolve_uci(notation, self.options.chess960())
+                .map_err(|error| EngineError::InvalidMove(error.to_string()))?;
+            if !allowed.contains(&chess_move) {
+                allowed.push(chess_move);
+            }
+        }
+        let task = Task::new(&self.game, self.options, limits, &allowed)?;
         self.cache.next_search();
         self.task = Some(task);
         Ok(())

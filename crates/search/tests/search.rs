@@ -180,3 +180,30 @@ fn repeated_positions_and_capture_resets_do_not_poison_search() -> Result<(), Bo
     assert_eq!(finish(&mut engine, 32)?.score_cp, Some(0));
     Ok(())
 }
+
+#[test]
+fn root_filters_validate_atomically_and_keep_the_requested_move() -> Result<(), Box<dyn Error>> {
+    let mut engine = Engine::new()?;
+    engine.start_moves(
+        SearchLimits {
+            depth: 2,
+            nodes: 20_000,
+        },
+        &["e2e4"],
+    )?;
+    engine.step(16)?;
+    let before = engine.report();
+    assert!(
+        engine
+            .start_moves(SearchLimits::default(), &["e2e5"])
+            .is_err()
+    );
+    assert_eq!(before, engine.report());
+    let report = finish(&mut engine, 128)?;
+    assert_eq!(
+        report.best_move.map(|mv| mv.to_uci(false)),
+        Some("e2e4".into())
+    );
+    assert_eq!(report.variations.len(), 1);
+    Ok(())
+}

@@ -10,6 +10,13 @@ impl Board {
     /// Invalid notation and moves outside the legal list return distinct errors.
     /// Castling notation follows the requested standard or Chess960 convention.
     pub fn play_uci(&self, notation: &str, chess960: bool) -> Result<Self, MoveError> {
+        let chess_move = self.resolve_uci(notation, chess960)?;
+        self.after_generated_move(chess_move)
+            .ok_or(MoveError::IllegalMove)
+    }
+
+    /// Invalid notation or a move outside this position's legal list returns its move error.
+    pub fn resolve_uci(&self, notation: &str, chess960: bool) -> Result<Move, MoveError> {
         if !matches!(notation.len(), 4 | 5) || !notation.is_ascii() {
             return Err(MoveError::InvalidNotation);
         }
@@ -18,8 +25,7 @@ impl Board {
             .into_iter()
             .find(|chess_move| chess_move.to_uci(chess960) == notation)
             .ok_or(MoveError::IllegalMove)?;
-        self.after_generated_move(chess_move)
-            .ok_or(MoveError::IllegalMove)
+        Ok(chess_move)
     }
 
     pub(super) fn after_generated_move(&self, chess_move: Move) -> Option<Self> {

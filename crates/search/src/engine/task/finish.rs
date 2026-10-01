@@ -83,7 +83,7 @@ impl Task {
                 score_cp: result.score,
                 moves: result.pv,
             });
-            let count = usize::from(self.options.effective_pv()).min(self.root.legal_moves().len());
+            let count = usize::from(self.options.effective_pv()).min(self.root_moves.len());
             if self.lines.len() < count {
                 return;
             }
