@@ -127,6 +127,7 @@ single-worker engine; it does not imply native SMP/ISA throughput on every devic
 
 ## Search histories, adaptive limits, native batch analysis and Syzygy
 
+Local source revision: `779a3df96587f5564bd8c304daf3466c7d7f6888`.
 Locally verified on 2026-10-01 with stable Rust 1.98.1. Strict workspace Clippy,
 all native tests, rustdoc, optimized native build, formatting, Python tooling, JS
 syntax, UCI smoke tests and eight deterministic search snapshots passed. The native
@@ -155,7 +156,9 @@ Coverage remains intentionally bounded. Interior WDL calls skip castling positio
 and nonzero halfmove clocks because the upstream WDL API omits the rule-50 clock.
 Root DTZ uses the clock but skips castling and runs only for full-strength single-PV
 searches; limited-strength, human-style and MultiPV searches fall back to search.
+Final source revision `5dc818fe91f705bdf69f4c82bc3a682075df3482` passed both
+[standard CI](https://github.com/codewiththiha/gwaymaegyi/actions/runs/36864353881)
+and [extended Windows/macOS CI](https://github.com/codewiththiha/gwaymaegyi/actions/runs/36864514467);
+all jobs succeeded, including native UCI and snapshot checks on both additional OSes.
 Wider table coverage, single-position SMP, controlled strength calibration and
-broader tactical/parity tests remain open work. These latest checks ran on Linux;
-the earlier Windows/macOS CI records above predate the Syzygy adapter. No tablebase
-files are bundled.
+broader tactical/parity tests remain open work. No tablebase files are bundled.
