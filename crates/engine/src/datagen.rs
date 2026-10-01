@@ -8,10 +8,7 @@
 use std::{
     error::Error,
     fmt,
-    sync::{
-        Mutex,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
-    },
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
     thread,
 };
 
@@ -167,7 +164,6 @@ pub fn generate_training_data(
         }
     }
     let next_game = AtomicUsize::new(0);
-    let collected: Mutex<Vec<(usize, Vec<TrainingRecord>)>> = Mutex::new(Vec::new());
     let total_saved = AtomicUsize::new(0);
     let worker_count = usize::from(config.threads).min(config.positions);
 
@@ -176,7 +172,6 @@ pub fn generate_training_data(
         for _ in 0..worker_count {
             let openings_ref = &openings;
             let next_game_ref = &next_game;
-            let collected_ref = &collected;
             let saved_ref = &total_saved;
             handles.push(scope.spawn(move || {
                 let mut engine = Engine::new().map_err(DatagenError::Engine)?;
@@ -185,6 +180,7 @@ pub fn generate_training_data(
                 base.set_chess960(config.chess960);
                 base.set_hash_mib(1).map_err(DatagenError::Engine)?;
                 engine.configure(base).map_err(DatagenError::Engine)?;
+                let mut local_batches = Vec::new();
 
                 while !cancel.load(Ordering::Relaxed)
                     && saved_ref.load(Ordering::Relaxed) < config.positions
@@ -197,18 +193,17 @@ pub fn generate_training_data(
                         play_single_game(&mut engine, config, openings_ref, game_id, cancel)?;
                     if !records.is_empty() {
                         saved_ref.fetch_add(records.len(), Ordering::Relaxed);
-                        if let Ok(mut guard) = collected_ref.lock() {
-                            guard.push((game_id, records));
-                        }
+                        local_batches.push((game_id, records));
                     }
                 }
-                Ok::<(), DatagenError>(())
+                Ok::<_, DatagenError>(local_batches)
             }));
         }
+        let mut batches = Vec::new();
         let mut failure = None;
         for handle in handles {
             match handle.join() {
-                Ok(Ok(())) => {}
+                Ok(Ok(worker_batches)) => batches.extend(worker_batches),
                 Ok(Err(error)) => {
                     if failure.is_none() {
                         failure = Some(error);
@@ -224,9 +219,6 @@ pub fn generate_training_data(
         if let Some(error) = failure {
             return Err(error);
         }
-        let mut batches = collected
-            .into_inner()
-            .map_err(|_| DatagenError::WorkerFailure)?;
         batches.sort_by_key(|(game_id, _)| *game_id);
         let mut out = Vec::with_capacity(config.positions);
         for (_, batch) in batches {
