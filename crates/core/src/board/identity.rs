@@ -20,14 +20,14 @@ impl Board {
 
     pub(super) fn state_key(&self) -> u64 {
         let mut state = if self.side == Color::Black {
-            crate::key::random(768)
+            PositionKey::state_component(768)
         } else {
             0
         };
         for (color, rights) in self.castling.rooks.iter().enumerate() {
             for (side, rook) in rights.iter().enumerate() {
                 if let Some(rook) = rook {
-                    state ^= crate::key::random(
+                    state ^= PositionKey::state_component(
                         (769 + color * 16 + side * 8 + usize::from(rook.file())) as u64,
                     );
                 }
@@ -35,7 +35,7 @@ impl Board {
         }
         if self.has_legal_en_passant() {
             if let Some(square) = self.en_passant {
-                state ^= crate::key::random(801 + u64::from(square.file()));
+                state ^= PositionKey::state_component(801 + u64::from(square.file()));
             }
         }
         state

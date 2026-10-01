@@ -43,12 +43,16 @@ impl PositionKey {
         }
     }
 
+    pub(crate) const fn state_component(index: u64) -> u64 {
+        random(index)
+    }
+
     pub(crate) const fn toggle_state(&mut self, state: u64) {
         self.full ^= state;
     }
 }
 
-pub(super) const fn random(index: u64) -> u64 {
+const fn random(index: u64) -> u64 {
     let mut value = 0x9e37_79b9_7f4a_7c15_u64.wrapping_mul(index.wrapping_add(1));
     value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
     value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
