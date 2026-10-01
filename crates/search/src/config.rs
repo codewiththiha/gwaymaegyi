@@ -229,8 +229,9 @@ impl Options {
         }
         let last = material_history.len() - 1;
         let mut index = if (last & 1) == 0 { 2 } else { 1 };
-        while index + 4 < material_history.len() {
-            if material_history[index] < 0
+        while index + 2 <= last {
+            if index + 4 < material_history.len()
+                && material_history[index] < 0
                 && material_history[index + 1] > 0
                 && material_history[index + 2] < 0
                 && material_history[index + 3] > 0
