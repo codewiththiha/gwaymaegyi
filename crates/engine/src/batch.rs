@@ -3,11 +3,14 @@
 
 #![expect(clippy::missing_errors_doc, reason = "Batch failures use plain prose.")]
 
-use gwaymaegyi_search::{Engine, EngineError, Options, SearchLimits, SearchReport};
+use gwaymaegyi_search::{Engine, EngineError, Options, SearchLimits, SearchReport, TablebaseProbe};
 use std::{
     error::Error,
     fmt,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     thread,
 };
 
@@ -18,6 +21,7 @@ pub struct AnalysisRequest {
     pub roots: Vec<String>,
     pub options: Options,
     pub limits: SearchLimits,
+    pub tablebase: Option<Arc<dyn TablebaseProbe>>,
 }
 
 #[derive(Clone, Debug)]
@@ -85,6 +89,7 @@ pub fn analyze_batch(
                 for index in (worker..requests.len()).step_by(count) {
                     let request = &requests[index];
                     let mut engine = Engine::new().map_err(BatchError::Engine)?;
+                    engine.set_tablebase(request.tablebase.clone());
                     engine
                         .configure(request.options)
                         .map_err(BatchError::Engine)?;

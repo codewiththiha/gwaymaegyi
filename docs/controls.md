@@ -47,12 +47,15 @@ the active setting; `Skill_Level=21` or disabling UCI_LimitStrength restores ful
 | MultiPV | Options::set_multi_pv | MultiPV | set_multi_pv/configure | configure.options.multiPv |
 | Search caps | SearchLimits, Engine::set_limits | go depth/nodes | start/set_limits/start_full | start/performance |
 | Slice work | Engine::step | Adapter-owned | step | quantum |
-| Time allowance | Host-owned | go clocks/movetime | Host-owned | timeMs |
+| Search algorithm tuning | Options::tuning / SearchTuning | Behavior + 38 numeric options | set_behavior / set_parameter | behavior / parameter requests |
+| Adaptive time factors | SearchTuning | NodeTmFactor*, BmFactor1, ScoreDrop* | set_parameter / soft_time_limit_ms | set_parameter, applied by worker |
+| Time allowance | Host-owned | go clocks/movetime | Host-owned | timeMs deadline, checked between slices |
 | Reporting overhead | Host-owned | Adapter-owned | Host-owned | reportIntervalMs |
 
 `capabilities_json()` exposes modes, all 21 skill presets, supported limits,
 backend identity, live-limit support, and the false Elo-calibration flag.
-`limits_json()` reports both requested and effective depth/node caps. Approximate
+`search_controls_json()` lists the eleven behavior switches and 38 validated numeric
+parameters. `limits_json()` reports requested/effective depth-node caps. Approximate
 strength may lower effective caps; a full compute profile does not override the
 selected strength policy.
 
@@ -82,8 +85,10 @@ worker.postMessage({id: 'tune', type: 'performance', target: 'search', options: 
 A performance update preserves the live continuation and already counted nodes.
 Node caps are absolute for that search, not additional nodes. Raising caps allows
 more work; lowering an exhausted cap stops immediately and retains completed
-analysis. A new timeMs allowance starts when its update is processed; null removes
-the deadline. Finished/stopped searches require a new start request.
+analysis. A new timeMs deadline starts when its update is processed; null removes it. The
+worker checks deadlines between bounded synchronous slices, so one slice can
+overshoot. Adaptive factors may stop earlier but never extend the deadline.
+Finished/stopped searches require a new start request.
 
 ## What instant changes mean
 

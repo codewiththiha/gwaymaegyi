@@ -8,6 +8,7 @@ pub enum Completion {
     Nodes,
     Stopped,
     Terminal,
+    Tablebase,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -36,6 +37,7 @@ pub struct SearchReport {
     pub variations: Vec<PrincipalVariation>,
     /// Nodes spent on the best line's root move in the last completed iteration.
     pub best_move_nodes: u64,
+    pub tablebase_hits: u64,
 }
 
 impl PrincipalVariation {

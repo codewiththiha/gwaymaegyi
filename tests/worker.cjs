@@ -32,6 +32,7 @@ const send = message => worker.postMessage(message);
   assert.equal(tuned.report.status,'running');
   assert.ok(BigInt(tuned.report.nodes)>=BigInt(progress.report.nodes));
   assert.equal(tuned.performance.quantum,32);
+  assert.equal(tuned.performance.timeMs,5000);
   assert.equal(tuned.limits.effective.nodes,'100000000');
   send({id:'bad-tune',type:'performance',target:'one',options:{quantum:0,nodes:'1'}});
   await wait(message => message.id === 'bad-tune' && message.type === 'error');

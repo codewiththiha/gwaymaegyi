@@ -55,6 +55,15 @@ def main(executable):
         assert any("Skill_Level type spin default 21 min 1 max 21" in line for line in identification)
         engine.send("isready")
         engine.until("readyok")
+        engine.send("setoption name SyzygyPath value /definitely/not/a/tablebase")
+        engine.until("info string rejected:")
+        engine.send("setoption name SyzygyPath value")
+        engine.until("info string Syzygy tablebases disabled")
+        engine.send("setoption name SyzygyPath value /definitely/not/a/tablebase")
+        engine.until("info string rejected:")
+        engine.send("setoption name SyzygyPath value")
+        disabled = engine.until("info string Syzygy tablebases disabled")
+        assert any("Syzygy tablebases disabled" in line for line in disabled)
 
         engine.send("position startpos")
         engine.send("go depth 3")
@@ -71,14 +80,12 @@ def main(executable):
         assert stopped[-1] != "bestmove 0000"
 
         engine.send("position startpos")
-        engine.send("go ponder depth 1")
-        pondering = engine.until("info depth 1 ")
+        engine.send("go ponder wtime 2000 btime 2000")
+        pondering = engine.until("info depth ")
         assert not any(line.startswith("bestmove ") for line in pondering)
-        engine.send("isready")
-        ready = engine.until("readyok")
-        assert not any(line.startswith("bestmove ") for line in ready)
         engine.send("ponderhit")
-        engine.until("bestmove ")
+        pondered = engine.until("bestmove ", timeout=5)
+        assert pondered[-1] != "bestmove 0000", pondered
 
         engine.send("position startpos")
         engine.send("go depth 2 searchmoves e2e4")

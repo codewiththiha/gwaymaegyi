@@ -105,7 +105,7 @@ pub fn capabilities_json() -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!(
-        "{{\"version\":\"{}\",\"modes\":[{modes}],\"eloMin\":500,\"eloMax\":3000,\"eloCalibrated\":false,\"skillLevels\":[{skills}],\"performanceProfiles\":[\"full\",\"balanced\",\"responsive\"],\"liveLimits\":true,\"maxDepth\":{},\"maxMultiPv\":5,\"maxHashMiB\":64,\"maxWork\":65536,\"cooperativeSearch\":true,\"chess960\":true,\"simd128\":{}}}",
+        "{{\"version\":\"{}\",\"modes\":[{modes}],\"eloMin\":500,\"eloMax\":3000,\"eloCalibrated\":false,\"skillLevels\":[{skills}],\"performanceProfiles\":[\"full\",\"balanced\",\"responsive\"],\"liveLimits\":true,\"maxDepth\":{},\"maxMultiPv\":5,\"maxHashMiB\":64,\"maxWork\":65536,\"cooperativeSearch\":true,\"chess960\":true,\"simd128\":{},\"nativeSyzygy\":false}}",
         env!("CARGO_PKG_VERSION"),
         gwaymaegyi_search::MAX_DEPTH,
         cfg!(all(target_arch = "wasm32", target_feature = "simd128"))

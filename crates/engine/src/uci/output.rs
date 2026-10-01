@@ -33,8 +33,8 @@ pub(super) fn info(report: &SearchReport, chess960: bool, elapsed: u128, count: 
             )
         });
         return vec![format!(
-            "info depth {} seldepth {}{score} nodes {} nps {nps} time {elapsed}",
-            report.depth, report.selective_depth, report.nodes
+            "info depth {} seldepth {}{score} nodes {} tbhits {} nps {nps} time {elapsed}",
+            report.depth, report.selective_depth, report.nodes, report.tablebase_hits
         )];
     }
     let chosen = report
@@ -45,6 +45,6 @@ pub(super) fn info(report: &SearchReport, chess960: bool, elapsed: u128, count: 
         .take(usize::from(count)).enumerate().map(|(index,line)| {
             let score=line.mate_in().map_or_else(||format!("cp {}",line.score_cp),|mate|format!("mate {mate}"));
             let pv=line.moves.iter().map(|chess_move|chess_move.to_uci(chess960)).collect::<Vec<_>>().join(" ");
-            format!("info depth {} seldepth {} multipv {} score {score} nodes {} nps {nps} time {elapsed} pv {pv}",report.depth,report.selective_depth,index+1,report.nodes)
+            format!("info depth {} seldepth {} multipv {} score {score} nodes {} tbhits {} nps {nps} time {elapsed} pv {pv}",report.depth,report.selective_depth,index+1,report.nodes,report.tablebase_hits)
         }).collect()
 }

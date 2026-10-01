@@ -7,13 +7,27 @@ use super::{
     options::{IDENTIFICATION, ProtocolOptions},
     output,
 };
-use gwaymaegyi_core::START_FEN;
-use gwaymaegyi_search::Engine;
+use crate::NativeTablebases;
+use gwaymaegyi_search::TablebaseProbe;
+use gwaymaegyi_search::{Engine, Parameter, SearchTuning};
 use std::fmt::Write as _;
+use std::sync::Arc;
 use std::{
     sync::mpsc::{Receiver, SyncSender},
     time::{Duration, Instant},
 };
+
+#[derive(Clone, Copy, Debug)]
+struct SoftLimitInput {
+    started: Instant,
+    original_opt: u64,
+    max_ms: u64,
+    best_move_nodes: u64,
+    nodes: u64,
+    stability: u32,
+    score_delta: i32,
+    tuning: SearchTuning,
+}
 
 #[derive(Debug)]
 struct Active {
@@ -21,6 +35,8 @@ struct Active {
     deadline: Option<Instant>,
     hard: Option<Instant>,
     original_opt: u64,
+    max_ms: u64,
+    adaptive: bool,
     state: PlayState,
     last_depth: u8,
     last_nodes: u64,
@@ -35,6 +51,8 @@ struct Worker {
     options: ProtocolOptions,
     active: Option<Active>,
     output: SyncSender<String>,
+    tablebases: Option<Arc<NativeTablebases>>,
+    tablebase_path: Option<String>,
 }
 
 pub(super) fn run(input: &Receiver<Command>, output: &SyncSender<String>) {
@@ -47,6 +65,8 @@ pub(super) fn run(input: &Receiver<Command>, output: &SyncSender<String>) {
         options: ProtocolOptions::default(),
         active: None,
         output: output.clone(),
+        tablebases: None,
+        tablebase_path: None,
     };
     loop {
         for command in input.try_iter().take(32) {
@@ -93,7 +113,7 @@ impl Worker {
                         return false;
                     }
                 }
-                for spec in gwaymaegyi_search::Parameter::SPECS {
+                for spec in Parameter::SPECS {
                     if writeln!(
                         lines,
                         "option name {} type spin default {} min {} max {}",
@@ -109,13 +129,16 @@ impl Worker {
             }
             Command::Ready => return self.send("readyok".into()),
             Command::NewGame => {
-                let result = self.engine.set_position(START_FEN, &[]);
+                let result = self.engine.new_game();
                 if let Err(error) = result {
                     return self.rejected(&error.to_string());
                 }
                 self.active = None;
             }
             Command::Option { name, value } => {
+                if name.eq_ignore_ascii_case("SyzygyPath") {
+                    return self.set_tablebase_path(&value);
+                }
                 match self.options.set(&mut self.engine, &name, &value) {
                     Ok(()) => self.active = None,
                     Err(error) => return self.rejected(&error),
@@ -136,12 +159,23 @@ impl Worker {
             Command::Stop => self.finish(),
             Command::PonderHit => {
                 if let Some(active) = self.active.as_mut() {
-                    if active.state == PlayState::Ponder && active.original_opt > 0 {
+                    if active.state == PlayState::Ponder {
                         active.state = PlayState::Normal;
-                        let now = Instant::now();
-                        active.deadline =
-                            now.checked_add(Duration::from_millis(active.original_opt));
-                        active.hard = active.deadline;
+                        active.started = Instant::now();
+                        active.deadline = if active.original_opt > 0 {
+                            active
+                                .started
+                                .checked_add(Duration::from_millis(active.original_opt))
+                        } else {
+                            None
+                        };
+                        active.hard = if active.max_ms > 0 {
+                            active
+                                .started
+                                .checked_add(Duration::from_millis(active.max_ms))
+                        } else {
+                            None
+                        };
                     }
                 }
                 if !self.engine.searching() {
@@ -161,29 +195,76 @@ impl Worker {
         }
         true
     }
+    fn set_tablebase_path(&mut self, path: &str) -> bool {
+        let path = path.trim();
+        if path.is_empty() {
+            self.engine.set_tablebase(None);
+            self.tablebases = None;
+            self.tablebase_path = None;
+            self.active = None;
+            return self.send("info string Syzygy tablebases disabled".into());
+        }
+        if self.tablebase_path.as_deref() == Some(path) {
+            return self.send(format!("info string Syzygy path unchanged: {path}"));
+        }
+        if self.tablebases.is_some() {
+            return self.rejected("disable the current SyzygyPath before selecting another");
+        }
+        match NativeTablebases::open(path) {
+            Ok(tablebases) => {
+                let max = tablebases.max_pieces();
+                let tablebases = Arc::new(tablebases);
+                self.engine
+                    .set_tablebase(Some(tablebases.clone() as Arc<dyn TablebaseProbe>));
+                self.tablebases = Some(tablebases);
+                self.tablebase_path = Some(path.to_owned());
+                self.active = None;
+                self.send(format!(
+                    "info string Syzygy WDL enabled for up to {max} pieces; root DTZ uses matching .rtbz files"
+                ))
+            }
+            Err(error) => self.rejected(&error),
+        }
+    }
+
     fn start(&mut self, go: &Go) -> Result<(), String> {
+        let started = Instant::now();
         let roots: Vec<_> = go.roots.iter().map(String::as_str).collect();
         self.engine
             .start_moves(go.limits, &roots)
             .map_err(|error| error.to_string())?;
-        let time = go.time_control(
-            self.engine.game().board().side_to_move() as usize,
-            self.options.overhead,
-        );
-        let started = Instant::now();
-        let (deadline, hard, original_opt) = match time {
-            Some((max, opt)) => (
-                started.checked_add(Duration::from_millis(opt)),
-                started.checked_add(Duration::from_millis(max)),
-                opt,
-            ),
-            None => (None, None, 0),
+        let time = if go.state == PlayState::Infinite {
+            None
+        } else {
+            go.time_control(
+                self.engine.game().board().side_to_move() as usize,
+                self.options.overhead,
+            )
+        };
+        let (max_ms, original_opt) = time.unwrap_or((0, 0));
+        let (deadline, hard) = if go.state == PlayState::Normal {
+            (
+                if original_opt > 0 {
+                    started.checked_add(Duration::from_millis(original_opt))
+                } else {
+                    None
+                },
+                if max_ms > 0 {
+                    started.checked_add(Duration::from_millis(max_ms))
+                } else {
+                    None
+                },
+            )
+        } else {
+            (None, None)
         };
         self.active = Some(Active {
             started,
             deadline,
             hard,
             original_opt,
+            max_ms,
+            adaptive: go.adaptive_time(),
             state: go.state,
             last_depth: 0,
             last_nodes: 0,
@@ -206,6 +287,7 @@ impl Worker {
             return self.rejected("missing active search");
         };
         let elapsed = active.started.elapsed().as_millis();
+        let tuning = self.engine.options().tuning();
         let publish = report.depth > active.last_depth;
         if publish {
             active.last_depth = report.depth;
@@ -227,21 +309,24 @@ impl Worker {
             };
             active.score_hist[usize::from(active.score_count) % 3] = score;
             active.score_count = active.score_count.saturating_add(1);
-            if let Some(max_ms) = active.hard.and_then(|hard| {
-                hard.duration_since(active.started)
-                    .as_millis()
-                    .try_into()
-                    .ok()
-            }) {
-                active.deadline = Self::soft_deadline(
-                    active.started,
-                    active.original_opt,
-                    max_ms,
-                    report.best_move_nodes,
-                    report.nodes,
-                    active.stability,
-                    prev - score,
-                );
+            if active.adaptive {
+                if let Some(max_ms) = active.hard.and_then(|hard| {
+                    hard.duration_since(active.started)
+                        .as_millis()
+                        .try_into()
+                        .ok()
+                }) {
+                    active.deadline = Self::soft_deadline(SoftLimitInput {
+                        started: active.started,
+                        original_opt: active.original_opt,
+                        max_ms,
+                        best_move_nodes: report.best_move_nodes,
+                        nodes: report.nodes,
+                        stability: active.stability,
+                        score_delta: prev - score,
+                        tuning,
+                    });
+                }
             }
         }
         let now = Instant::now();
@@ -271,39 +356,16 @@ impl Worker {
     /// Reference soft-limit adjustment: scale the original opt by the
     /// best-move node share, best-move stability, and a smoothed score drop.
     #[must_use]
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "Node ratios need no precision beyond 53 bits; clamped downstream."
-    )]
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "The value is clamped to max_ms, a u64, before conversion."
-    )]
-    #[expect(
-        clippy::cast_sign_loss,
-        reason = "The value is clamped to at least 1.0 before conversion."
-    )]
-    fn soft_deadline(
-        started: Instant,
-        original_opt: u64,
-        max_ms: u64,
-        best_move_nodes: u64,
-        nodes: u64,
-        stability: u32,
-        score_delta: i32,
-    ) -> Option<Instant> {
-        if original_opt == 0 {
-            return None;
-        }
-        let fract = best_move_nodes as f64 / nodes.max(1) as f64;
-        let factor = (1.49 - fract) * 1.77;
-        let bm_factor = f64::from(stability).mul_add(-0.06, 1.52);
-        let score_factor = (1.0 + f64::from(score_delta) / 540.0).clamp(0.90, 1.18);
-        let soft = (original_opt as f64 * factor)
-            .mul_add(bm_factor, 0.0)
-            .mul_add(score_factor, 0.0);
-        let soft = soft.clamp(1.0, max_ms as f64).round() as u64;
-        started.checked_add(Duration::from_millis(soft))
+    fn soft_deadline(input: SoftLimitInput) -> Option<Instant> {
+        let soft_ms = input.tuning.soft_limit_ms(
+            input.original_opt,
+            input.max_ms,
+            input.best_move_nodes,
+            input.nodes,
+            input.stability,
+            input.score_delta,
+        )?;
+        input.started.checked_add(Duration::from_millis(soft_ms))
     }
 
     fn finish(&mut self) {
@@ -328,5 +390,56 @@ impl Worker {
                 self.options.ponder,
             ));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{SoftLimitInput, Worker};
+    use gwaymaegyi_search::{Parameter, SearchTuning};
+    use std::time::Instant;
+
+    #[test]
+    fn native_soft_limit_uses_validated_tuning_and_respects_hard_cap()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let started = Instant::now();
+        let mut tuning = SearchTuning::default();
+        let default = Worker::soft_deadline(SoftLimitInput {
+            started,
+            original_opt: 1000,
+            max_ms: 3000,
+            best_move_nodes: 250,
+            nodes: 1000,
+            stability: 1,
+            score_delta: 0,
+            tuning,
+        })
+        .ok_or("finite budget")?;
+        tuning.set(Parameter::BmFactor1, 100)?;
+        let reduced = Worker::soft_deadline(SoftLimitInput {
+            started,
+            original_opt: 1000,
+            max_ms: 3000,
+            best_move_nodes: 250,
+            nodes: 1000,
+            stability: 1,
+            score_delta: 0,
+            tuning,
+        })
+        .ok_or("finite budget")?;
+        assert!(reduced < default);
+        let capped = Worker::soft_deadline(SoftLimitInput {
+            started,
+            original_opt: 1000,
+            max_ms: 100,
+            best_move_nodes: 0,
+            nodes: 1000,
+            stability: 1,
+            score_delta: 1000,
+            tuning,
+        })
+        .ok_or("finite budget")?;
+        assert!(capped.duration_since(started).as_millis() <= 100);
+        Ok(())
     }
 }

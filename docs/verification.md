@@ -124,3 +124,38 @@ skill-option behavior.
 This closes the control exposure gate, not full feature/search-strength parity or
 rating calibration. Full compute uses the maximum capabilities implemented in this
 single-worker engine; it does not imply native SMP/ISA throughput on every device.
+
+## Search histories, adaptive limits, native batch analysis and Syzygy
+
+Locally verified on 2026-10-01 with stable Rust 1.98.1. Strict workspace Clippy,
+all native tests, rustdoc, optimized native build, formatting, Python tooling, JS
+syntax, UCI smoke tests and eight deterministic search snapshots passed. The native
+suite exercises score-correction training/persistence, legal SEE, root-tablebase
+filters, adaptive time formulas, WDL counters, and bounded batch analysis. No rating
+or universal speed claim is made.
+
+Both portable and SIMD128 WASM targets passed strict Clippy, optimized builds,
+compiled Node runtime and worker checks. Each matched all 342 evaluation scores and
+eight native search snapshots; worker tests covered live budgets, stale suppression,
+controls, and cancellation. The WASM worker applies the shared adaptive time factors
+under the host `timeMs` deadline; deadline checks occur between synchronous
+worker slices, so one slice may overrun. Search reports expose lossless `bestMoveNodes`
+and `tablebaseHits` strings; WASM has no Syzygy provider, so its hit count is zero.
+
+A separate optional native integration test was run with external Lichess KRvK WDL
+and DTZ files (`.rtbw` 208 bytes, `.rtbz` 7,632 bytes). For
+`8/8/8/2R5/1K6/8/5k2/8 w - - 0 1`, it returned WDL Win, `c5c4`, DTZ 21, and an
+immediate `Completion::Tablebase` report. A native UCI process using the same data
+returned `bestmove c5c4`, `score cp 29000`, and `tbhits 1`. The fixture is not
+committed or bundled; `GWAYMAEGYI_SYZYGY_PATH` enables the reproducible optional test
+documented in [development](development.md). Path startup is a shallow preflight;
+failed probes fall back to search and do not increase `tbhits`.
+
+Coverage remains intentionally bounded. Interior WDL calls skip castling positions
+and nonzero halfmove clocks because the upstream WDL API omits the rule-50 clock.
+Root DTZ uses the clock but skips castling and runs only for full-strength single-PV
+searches; limited-strength, human-style and MultiPV searches fall back to search.
+Wider table coverage, single-position SMP, controlled strength calibration and
+broader tactical/parity tests remain open work. These latest checks ran on Linux;
+the earlier Windows/macOS CI records above predate the Syzygy adapter. No tablebase
+files are bundled.

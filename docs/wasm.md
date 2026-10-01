@@ -50,8 +50,10 @@ set of variations remains available if a later iteration is interrupted.
 Default full profile: maximum supported depth/nodes, 1024 work units, and 100 ms
 reporting. Balanced/responsive presets and individual overrides remain available.
 Use smaller slices on slower devices and finite budgets for games. A work bound
-is not a fixed millisecond guarantee. Optional host time limits stop between slices.
-Node counts and seeds are decimal strings to avoid JavaScript precision loss.
+is not a fixed millisecond guarantee. Optional `timeMs` is a non-extendible
+worker deadline checked between bounded synchronous slices; one slice may overrun.
+Validated adaptive factors may select an earlier soft stop. Node counts and seeds are
+decimal strings to avoid JavaScript precision loss.
 
 ## Direct API
 
@@ -73,9 +75,14 @@ adapter does this automatically. Engine state is worker-owned; weights are immut
 WASM linear memory can reuse freed allocations but does not shrink automatically;
 terminate a worker when reclaiming its peak memory is necessary.
 
-`capabilities_json()` identifies backend, limits, and **uncalibrated** Elo controls.
-`raw_evaluate(fen, model, perspective)` exposes raw model units for exact verification;
-engine scores use normalized centipawns, with a separate mate-distance getter.
+`capabilities_json()` identifies backend, limits, **uncalibrated** Elo controls, and
+explicitly reports that native Syzygy is unavailable in this build.
+`raw_evaluate(fen, model, perspective)` exposes raw model units for exact verification.
+Reports include lossless `bestMoveNodes` and `tablebaseHits` decimal strings (tablebase
+hits are zero in this build); engine scores use normalized centipawns, with a separate
+mate-distance getter. The worker uses `bestMoveNodes` and the per-engine timing
+parameters to choose an adaptive soft stop no later than the `timeMs` deadline;
+one synchronous slice may finish after that deadline.
 The original normalize_fen/legal_moves/play_uci/perft helpers remain available.
 These position-only helpers differ from the engine game API, which enforces
 automatic outcomes and owns repetition history.

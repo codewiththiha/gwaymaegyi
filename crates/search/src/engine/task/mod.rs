@@ -35,6 +35,7 @@ pub(super) struct Task {
     pub style_loss: i32,
     pub last_mistake: Option<i32>,
     pub style_applied: bool,
+    pub tablebase: Option<std::sync::Arc<dyn crate::TablebaseProbe>>,
     root_nodes: Vec<u64>,
     root_base: Option<(usize, u64)>,
     lmr_table: Vec<i16>,
@@ -48,6 +49,7 @@ impl Task {
         limits: SearchLimits,
         allowed: &[Move],
         style_loss: i32,
+        tablebase: Option<std::sync::Arc<dyn crate::TablebaseProbe>>,
     ) -> Result<Self, EngineError> {
         let root = *game.board();
         let outcome = game.outcome();
@@ -94,6 +96,7 @@ impl Task {
             style_loss,
             last_mistake: None,
             style_applied: false,
+            tablebase,
             root_nodes: vec![0; root_count],
             root_base: None,
             lmr_table: Self::lmr_table_for(options.tuning()),
@@ -152,6 +155,24 @@ impl Task {
                     self.frames.push(child);
                 }
                 Action::Complete(result) => {
+                    if frame.cache_policy == CachePolicy::Write
+                        && frame.depth > 0
+                        && !frame.flags.synthetic()
+                        && !frame.flags.in_check()
+                        && frame.excluded.is_none()
+                        && frame.bound(result.score) == crate::engine::table::Bound::Exact
+                        && frame
+                            .best_move
+                            .is_some_and(|chess_move| !frame.board.is_capture(chess_move))
+                    {
+                        cache.history.update_correction(
+                            &frame.board,
+                            self.priors(),
+                            result.score,
+                            frame.evaluation,
+                            frame.depth,
+                        );
+                    }
                     if frame.cache_policy == CachePolicy::Write {
                         cache.store(
                             frame.key,
@@ -302,7 +323,14 @@ mod tests {
     #[test]
     fn restricted_root_bounds_never_enter_the_full_position_cache() -> Result<(), Box<dyn Error>> {
         let game = Game::start()?;
-        let mut task = Task::new(&game, Options::default(), SearchLimits::default(), &[], 0)?;
+        let mut task = Task::new(
+            &game,
+            Options::default(),
+            SearchLimits::default(),
+            &[],
+            0,
+            None,
+        )?;
         let mut cache = Cache::new(1)?;
         task.start_pass();
         let mut frame = task.frames.pop().ok_or(EngineError::InternalState)?;
@@ -325,6 +353,7 @@ mod tests {
             SearchLimits::default(),
             &[root_move],
             0,
+            None,
         )?;
         task.start_pass();
         let mut parent = task.frames.pop().ok_or(EngineError::InternalState)?;
@@ -348,7 +377,14 @@ mod tests {
     fn singular_verification_does_not_consume_a_game_ply() -> Result<(), Box<dyn Error>> {
         use crate::engine::frame::{Pending, Probe};
         let game = Game::start()?;
-        let mut task = Task::new(&game, Options::default(), SearchLimits::default(), &[], 0)?;
+        let mut task = Task::new(
+            &game,
+            Options::default(),
+            SearchLimits::default(),
+            &[],
+            0,
+            None,
+        )?;
         task.start_pass();
         let parent = task.frames.pop().ok_or(EngineError::InternalState)?;
         let pending = Pending {
@@ -368,7 +404,14 @@ mod tests {
     fn prior_history_tracks_the_scheduled_move_not_an_earlier_best() -> Result<(), Box<dyn Error>> {
         use crate::engine::frame::{Pending, Probe, ScoredMove};
         let game = Game::start()?;
-        let mut task = Task::new(&game, Options::default(), SearchLimits::default(), &[], 0)?;
+        let mut task = Task::new(
+            &game,
+            Options::default(),
+            SearchLimits::default(),
+            &[],
+            0,
+            None,
+        )?;
         task.start_pass();
         let parent = task.frames.last_mut().ok_or(EngineError::InternalState)?;
         let successor = game

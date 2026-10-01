@@ -11,22 +11,22 @@ and executed acceptance evidence before it becomes verified.
 | Position identity and game history | Verified incremental keys and draw boundaries | Retain history parity during new search probes |
 | Three neural models | Exact raw-score fixtures and incremental updates verified | Match phase-selection and adjusted evaluation policies |
 | Aggressive evaluation | Simplified material/compensation policy | Persistent sacrifice detection, queen/material adjustments, contextual fixtures |
-| Score correction | Not implemented | Pawn, non-pawn, and continuation correction histories |
-| Move ordering | Quiet history, killers, capture ordering | Capture and continuation histories, staged losing captures, exchange evaluation |
-| Search pruning | PVS, quiescence, basic null/RFP/futility/LMP/LMR | Razoring, probcut, internal reductions, history/SEE pruning, full LMR policy |
-| Search extensions | Not implemented | Singular verification, multi-cut, double/triple and negative extensions |
+| Score correction | Pawn/non-pawn/continuation corrections applied and trained on completed exact quiet nodes; worker-local tables persist across positions and clear on new game/policy reset | Feature-index/parity calibration and broader search fixture comparison |
+| Move ordering | Quiet/capture/continuation history, killers, SEE-aware winning/losing capture stages and exchange evaluation | Strength/parity calibration and broader ordering fixtures |
+| Search pruning | PVS, quiescence, null/RFP/futility/LMP/LMR, razoring, probcut, internal reductions, history and SEE pruning | Broader tactical corpus and controlled strength measurement |
+| Search extensions | Singular verification with multi-cut and positive/negative extensions | Broader tactical corpus and tuning validation |
 | Iteration policy | Resumable aspiration windows and full-window fallback implemented | Compiled native/WASM verification and search-strength testing |
-| Native time management | Checked clock budgets | Best-move node share, instability, and score-drop scaling |
-| Human-style selection | Reproducible five-candidate tolerance | Accumulated mistake budget, opening variety, and sacrifice preference |
+| Time management | UCI and WASM adapt soft limits without extending host deadlines; both check between bounded work slices | Match/time-control calibration |
+| Human-style selection | Seeded opening variety, accumulated mistake budget and sacrifice preference | Controlled playing-style validation |
 | Skill controls | Verified nominal levels 1–21 and direct Elo targets | Controlled playing-strength calibration |
-| Tunable parameters | 15 applied parameters and five behavior switches implemented | Remaining algorithms/parameters and compiled endpoint verification |
-| Native multi-worker search | Independent-request native batch parallelism implemented | Single-position SMP, shared-cache policy, cancellation and runtime evidence |
-| Endgame tables | Not implemented | Actual WDL/root probes, rights/clock boundaries, paths and backend limits |
+| Tunable parameters | 38 validated numeric parameters and eleven behavior switches implemented | Remaining algorithms/parameters and compiled endpoint verification |
+| Native multi-worker search | Bounded independent-request batch workers, ordering, memory checks, and slice-level cancellation verified | Single-position SMP and shared-cache search policy |
+| Endgame tables | Native Pyrrhic/Fathom WDL interior probes and rule-50-aware root DTZ selection with `.rtbz` data; UCI path, batch sharing and hit counters | Broader supplied-table coverage; interior WDL skips castling/nonzero clocks; root DTZ skips castling; no bundled tables |
 | Benchmarks | Utility perft and WASM timing samples | Reproducible full-engine position suite and native benchmark command |
 | Data generation | Not implemented | Seeded self-play, opening input, bounded recording, adjudication, and shutdown |
 | Training conversion | Not implemented | Checked packed-record decoding/encoding and corpus comparison |
 | Position filters | Not implemented | Material, danger, space, storms, development, shelter, attack, outpost and compensation predicates |
-| WASM access | Verified controller, modes, skills and live budgets | Carry new portable capabilities through bindings and both backends |
+| WASM access | Verified controller, modes, skills, live budgets, behavior/parameter tuning and tablebase-hit reporting (always zero without a provider) | Broader browser/device matrix and further portable capabilities |
 | GUI | Out of scope | No GUI will be implemented |
 
 Native-only facilities must be declared as such rather than silently advertised in

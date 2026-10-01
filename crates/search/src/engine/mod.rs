@@ -6,15 +6,19 @@
     reason = "Errors are documented in plain prose."
 )]
 
-use crate::{Completion, EngineError, Options, SearchLimits, SearchReport, SearchStatus, Strength};
+use crate::{
+    Completion, EngineError, Options, SearchLimits, SearchReport, SearchStatus, Strength,
+    TablebaseProbe,
+};
 mod frame;
 mod history;
 mod table;
 mod task;
 
-use self::{table::Cache, task::Task};
+use self::{history::PriorMoves, table::Cache, task::Task};
 use gwaymaegyi_core::{Game, Outcome};
 use gwaymaegyi_eval::Accumulator;
+use std::sync::Arc;
 
 /// Portable orchestration owns its game, configuration, and active continuation.
 #[derive(Debug)]
@@ -24,6 +28,7 @@ pub struct Engine {
     cache: Cache,
     task: Option<Task>,
     style_loss: i32,
+    tablebase: Option<Arc<dyn TablebaseProbe>>,
 }
 
 impl Engine {
@@ -36,6 +41,7 @@ impl Engine {
             cache: Cache::new(options.hash_mib())?,
             task: None,
             style_loss: 0,
+            tablebase: None,
         })
     }
     #[must_use]
@@ -76,6 +82,24 @@ impl Engine {
         Ok(())
     }
 
+    /// Attach an optional thread-safe WDL provider and invalidate dependent search state.
+    pub fn set_tablebase(&mut self, tablebase: Option<Arc<dyn TablebaseProbe>>) {
+        self.task = None;
+        self.cache.clear();
+        self.tablebase = tablebase;
+    }
+
+    /// Begin a distinct game and release game-specific search history.
+    pub fn new_game(&mut self) -> Result<(), EngineError> {
+        let game =
+            Game::start().map_err(|error| EngineError::InvalidPosition(error.to_string()))?;
+        self.game = game;
+        self.task = None;
+        self.cache.clear();
+        self.style_loss = 0;
+        Ok(())
+    }
+
     /// The complete position/move list is validated before replacing the current game.
     pub fn set_position(&mut self, fen: &str, moves: &[&str]) -> Result<(), EngineError> {
         let mut game = Game::new(fen.parse().map_err(|error: gwaymaegyi_core::FenError| {
@@ -87,7 +111,7 @@ impl Engine {
         }
         self.game = game;
         self.task = None;
-        self.cache.clear();
+        self.cache.clear_entries();
         self.style_loss = 0;
         Ok(())
     }
@@ -122,7 +146,45 @@ impl Engine {
             }
         }
         self.apply_style_budget();
-        let task = Task::new(&self.game, self.options, limits, &allowed, self.style_loss)?;
+        let mut task = Task::new(
+            &self.game,
+            self.options,
+            limits,
+            &allowed,
+            self.style_loss,
+            self.tablebase.clone(),
+        )?;
+        if task.report.status == SearchStatus::Running
+            && matches!(self.options.strength(), Strength::Full)
+            && self.options.mode() != crate::Mode::Human
+            && self.options.multi_pv() == 1
+        {
+            if let Some(root) = self
+                .tablebase
+                .as_ref()
+                .and_then(|table| table.probe_root(self.game.board(), &allowed))
+                .filter(|root| {
+                    (allowed.is_empty() || allowed.contains(&root.best_move))
+                        && self.game.board().legal_moves().contains(&root.best_move)
+                })
+            {
+                let score = match root.wdl {
+                    crate::TablebaseWdl::Win => 29_000,
+                    crate::TablebaseWdl::Loss => -29_000,
+                    crate::TablebaseWdl::Draw
+                    | crate::TablebaseWdl::CursedWin
+                    | crate::TablebaseWdl::BlessedLoss => 0,
+                };
+                task.report.status = SearchStatus::Finished(Completion::Tablebase);
+                task.report.best_move = Some(root.best_move);
+                task.report.score_cp = Some(score);
+                task.report.tablebase_hits = 1;
+                task.report.variations = vec![crate::PrincipalVariation {
+                    score_cp: score,
+                    moves: vec![root.best_move],
+                }];
+            }
+        }
         self.cache.next_search();
         self.task = Some(task);
         Ok(())
@@ -195,6 +257,48 @@ impl Engine {
     pub fn evaluate(&self) -> i32 {
         let board = self.game.board();
         let state = Accumulator::new(board, self.options.model(board));
-        self.options.evaluate(board, &state, board)
+        let static_score = self.options.evaluate(board, &state, board);
+        let corrected = static_score
+            + self.options.tuning().get(crate::Parameter::CorrWeight)
+                * self.cache.history.correction(board, PriorMoves::default())
+                / 512;
+        corrected.clamp(-28_000, 28_000)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Engine;
+    use crate::engine::history::PriorMoves;
+    use gwaymaegyi_core::START_FEN;
+    use std::error::Error;
+
+    #[test]
+    fn correction_history_survives_position_updates_and_resets_on_new_game()
+    -> Result<(), Box<dyn Error>> {
+        let mut engine = Engine::new()?;
+        let fen = START_FEN;
+        let before = engine.evaluate();
+        let board = *engine.game().board();
+        engine
+            .cache
+            .history
+            .update_correction(&board, PriorMoves::default(), 400, before, 8);
+        engine.cache.store(
+            board.key().full(),
+            1,
+            0,
+            0,
+            None,
+            super::table::Bound::Exact,
+        );
+        let corrected = engine.evaluate();
+        assert!(corrected > before);
+        engine.set_position(fen, &[])?;
+        assert!(engine.cache.probe(board.key().full()).is_none());
+        assert_eq!(engine.evaluate(), corrected);
+        engine.new_game()?;
+        assert_eq!(engine.evaluate(), before);
+        Ok(())
     }
 }

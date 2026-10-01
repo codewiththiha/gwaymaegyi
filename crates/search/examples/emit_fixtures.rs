@@ -113,6 +113,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Completion::Nodes => "nodes",
                 Completion::Stopped => "stopped",
                 Completion::Terminal => "terminal",
+                Completion::Tablebase => "tablebase",
             },
         };
         let best = report.best_move.map_or_else(
@@ -148,7 +149,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let separator = if index + 1 == CASES.len() { "" } else { "," };
         writeln!(
             output,
-            "{{\"fen\":\"{}\",\"mode\":\"{}\",\"elo\":{},\"chess960\":{},\"roots\":[{roots}],\"depth\":{},\"nodes\":\"20000\",\"report\":{{\"status\":\"{status}\",\"finished\":true,\"depth\":{},\"selectiveDepth\":{},\"nodes\":\"{}\",\"bestMove\":{best},\"scoreCp\":{score},\"mate\":{mate},\"pv\":[{pv}],\"variations\":[{variations}]}}}}{separator}",
+            "{{\"fen\":\"{}\",\"mode\":\"{}\",\"elo\":{},\"chess960\":{},\"roots\":[{roots}],\"depth\":{},\"nodes\":\"20000\",\"report\":{{\"status\":\"{status}\",\"finished\":true,\"depth\":{},\"selectiveDepth\":{},\"nodes\":\"{}\",\"bestMoveNodes\":\"{}\",\"tablebaseHits\":\"{}\",\"bestMove\":{best},\"scoreCp\":{score},\"mate\":{mate},\"pv\":[{pv}],\"variations\":[{variations}]}}}}{separator}",
             case.fen,
             case.mode.as_str(),
             case.elo,
@@ -156,7 +157,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             case.depth,
             report.depth,
             report.selective_depth,
-            report.nodes
+            report.nodes,
+            report.best_move_nodes,
+            report.tablebase_hits
         )?;
     }
     writeln!(output, "]")?;

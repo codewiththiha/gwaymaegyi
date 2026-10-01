@@ -12,6 +12,7 @@ fn worker_count_does_not_change_independent_results() -> Result<(), Box<dyn Erro
             moves: vec![],
             roots: vec![],
             options: Options::default(),
+            tablebase: None,
             limits: SearchLimits {
                 depth: 3,
                 nodes: 20_000,
@@ -22,6 +23,7 @@ fn worker_count_does_not_change_independent_results() -> Result<(), Box<dyn Erro
             moves: vec![],
             roots: vec![],
             options: Options::default(),
+            tablebase: None,
             limits: SearchLimits {
                 depth: 2,
                 nodes: 10_000,

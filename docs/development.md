@@ -41,7 +41,7 @@ argument to verify that backend. CI executes both independently. Browser and Nod
 packages contain the same engine module. Counts use decimal
 strings at the JavaScript boundary to preserve full integer precision.
 
-## Native protocol and deterministic snapshots
+## Native protocol, tablebases, and deterministic snapshots
 
 ```sh
 cargo build --locked --release -p gwaymaegyi
@@ -62,9 +62,24 @@ WASM lint/runtime matrix in parallel. Actions are pinned to immutable revisions;
 lockfile. Dependency caches are separate for native and each WASM backend and saved only on main.
 Obsolete runs are cancelled. Builds expose small, short-retention artifacts rather
 than generated files in Git. A manual `extended` input also tests Windows/macOS protocols and snapshots.
-Artifacts include applicable model/license notices. The workflow is callable from another workflow without custom credentials.
+Artifacts include applicable model/license notices. The workflow is callable from
+another workflow without custom credentials.
 
 ## Watching CI
+
+Native UCI can enable optional tablebase probing with `SyzygyPath`; paths point to
+locally supplied directories and tablebases are not bundled. Interior WDL probes skip
+castling and nonzero halfmove clocks because that API omits rule-50; root DTZ probing
+uses the halfmove clock but skips castling. Root selection is single-PV and full-strength.
+
+For an optional real native WDL/root-DTZ check, place the KRvK `.rtbw` and `.rtbz`
+files in a local directory, then run:
+
+```sh
+GWAYMAEGYI_SYZYGY_PATH=/path/to/tables cargo test --locked -p gwaymaegyi --test syzygy
+```
+
+The test skips when that variable is unset; CI does not download or bundle tablebase data.
 
 The standard-library Python watcher reads Actions status and completed job logs.
 It does not cancel runs, push changes, or download build artifacts.

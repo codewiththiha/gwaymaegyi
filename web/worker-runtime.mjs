@@ -11,9 +11,31 @@ export function copyReport(raw) {
       status: raw.status, finished: raw.finished, depth: raw.depth,
       selectiveDepth: raw.selective_depth, nodes: raw.nodes,
       bestMove: raw.best_move ?? null, scoreCp: raw.score_cp ?? null,
-      mate: raw.mate ?? null, pv: raw.pv, variations: JSON.parse(raw.variations_json),
+      mate: raw.mate ?? null, bestMoveNodes: raw.best_move_nodes,
+      tablebaseHits: raw.tablebase_hits, pv: raw.pv, variations: JSON.parse(raw.variations_json),
     };
   } finally { raw.free(); }
+}
+
+function updateAdaptiveDeadline(engine, job) {
+  if (job.timeMs === null || job.last.depth <= job.adaptiveDepth) return;
+  const previous = job.scoreHistory.length
+    ? Math.trunc(job.scoreHistory.reduce((sum, score) => sum + score, 0) / job.scoreHistory.length)
+    : 0;
+  const score = job.last.scoreCp ?? 0;
+  const scoreDelta = previous - score;
+  if (job.last.bestMove !== null) {
+    job.stability = job.previousBest === job.last.bestMove ? job.stability + 1 : 1;
+    job.previousBest = job.last.bestMove;
+  }
+  const softMs = Number(engine.soft_time_limit_ms(
+    String(job.timeMs), String(job.timeMs), job.last.bestMoveNodes,
+    job.last.nodes, job.stability, scoreDelta,
+  ));
+  job.deadline = Math.min(job.hardDeadline, job.startedAt + softMs);
+  job.adaptiveDepth = job.last.depth;
+  job.scoreHistory.push(score);
+  if (job.scoreHistory.length > 3) job.scoreHistory.shift();
 }
 
 export function createRuntime(factory, post, hooks = {}) {
@@ -43,6 +65,7 @@ export function createRuntime(factory, post, hooks = {}) {
     try {
       if (job.deadline !== null && now() >= job.deadline) job.last = copyReport(engine.stop());
       else job.last = copyReport(engine.step(job.quantum));
+      updateAdaptiveDeadline(engine, job);
       const finished = job.last.finished;
       if (finished || job.last.depth !== job.publishedDepth || now() - job.publishedAt >= job.reportIntervalMs) {
         post({id: job.id, type: finished ? 'done' : 'progress', report: job.last});
@@ -95,8 +118,12 @@ export function createRuntime(factory, post, hooks = {}) {
           const roots = moves(message.roots ?? []);
           const initial = copyReport(engine.start_moves(compute.depth, compute.nodes, roots));
           replace();
-          const job = {id, ...compute, deadline: compute.timeMs == null ? null : now() + compute.timeMs,
-            last: initial, publishedDepth: -1, publishedAt: now(), timer: null};
+          const startedAt = now();
+          const timeMs = compute.timeMs ?? null;
+          const hardDeadline = timeMs === null ? null : startedAt + timeMs;
+          const job = {id, ...compute, timeMs, startedAt, hardDeadline, deadline: hardDeadline,
+            last: initial, adaptiveDepth: initial.depth, previousBest: null,
+            stability: 1, scoreHistory: [], publishedDepth: -1, publishedAt: now(), timer: null};
           current = job;
           job.timer = schedule(() => pump(job));
           break;
@@ -106,15 +133,29 @@ export function createRuntime(factory, post, hooks = {}) {
           if (message.target !== undefined && current.id !== message.target) throw new Error('no matching active search');
           const job = current;
           const compute = computeOptions(message.options, job);
+          const timeChanged = compute.timeMs !== undefined;
+          const previousTimeMs = job.timeMs;
           const report = copyReport(engine.set_limits(compute.depth, compute.nodes));
           Object.assign(job, compute, {last: report});
-          if (compute.timeMs !== undefined) job.deadline = compute.timeMs === null ? null : now() + compute.timeMs;
+          if (!timeChanged) {
+            job.timeMs = previousTimeMs;
+          } else {
+            job.timeMs = compute.timeMs;
+            job.startedAt = now();
+            job.hardDeadline = job.timeMs === null ? null : job.startedAt + job.timeMs;
+            job.deadline = job.hardDeadline;
+            job.adaptiveDepth = report.depth;
+            job.previousBest = report.bestMove;
+            job.stability = 1;
+            job.scoreHistory = [];
+          }
           if (report.finished) {
             cancel(job.timer); current = null;
             post({id: job.id, type: 'done', report});
           }
           post({id, type: 'ack', report, performance: {
-            depth: job.depth, nodes: job.nodes, quantum: job.quantum, reportIntervalMs: job.reportIntervalMs,
+            depth: job.depth, nodes: job.nodes, quantum: job.quantum,
+            reportIntervalMs: job.reportIntervalMs, timeMs: job.timeMs,
           }, limits: JSON.parse(engine.limits_json())});
           break;
         }

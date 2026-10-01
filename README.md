@@ -16,6 +16,10 @@ default rustfmt, and strict compiler/Clippy checks apply throughout.
   an interrupted recursive search. Native and browser adapters use the same engine.
 - Validated per-engine search behaviors/parameters and resumable aspiration retries.
 - Native independent-request parallel analysis with bounded worker/hash resources.
+- Optional native-only Syzygy WDL probing and single-PV root DTZ move selection;
+  `info tbhits` reports successful probes. Portable/WASM builds remain filesystem-
+  and native-FFI-free. Users supply `.rtbw` WDL files; matching `.rtbz` files also
+  enable root DTZ ranking. No tablebase data is bundled.
 - Native UCI with clocks, root restrictions, ponder, validated options, and legal
   early-stop fallbacks. Optimized **portable and SIMD128 WASM packages**, generated
   TypeScript declarations, and a worker SDK with stale-result suppression.
@@ -31,9 +35,9 @@ See [control endpoints and skill presets](docs/controls.md) for the complete
 Rust/UCI/WASM access matrix and live compute controls.
 
 The working engine and interfaces are not a claim of complete feature, search,
-or measured strength parity with another engine. Each position currently uses single-worker search; independent native batch requests
-can run in parallel. Single-position SMP, tablebase probing,
-and controlled strength calibration remain future work; see the
+or measured strength parity with another engine. Each position currently uses
+single-worker search; independent native batch requests can run in parallel.
+Single-position SMP and controlled strength calibration remain future work; see the
 [roadmap](docs/roadmap.md) and [verification evidence](docs/verification.md).
 
 ## Native UCI and command line
@@ -79,6 +83,19 @@ while engine.searching() {
 let report = engine.report();
 ```
 
+Native applications can attach user-owned Syzygy WDL data without coupling the
+portable search crate to filesystem paths:
+
+```rust
+let tables = std::sync::Arc::new(gwaymaegyi::NativeTablebases::open("./syzygy")?);
+engine.set_tablebase(Some(tables));
+```
+
+Interior WDL probes intentionally skip castling positions and nonzero halfmove
+clocks because Pyrrhic's WDL call has no rule-50 argument. With matching DTZ files,
+root move ranking uses the rule-50-aware DTZ API in full-strength single-PV searches;
+castling positions are unsupported. Syzygy paths and table files are native-only.
+
 Invalid inputs leave existing game/search state intact. Successful position or
 configuration changes discard stale analysis. Core/evaluation/search do not own
 OS clocks, threads, files, or an HTTP server.
@@ -114,8 +131,9 @@ worker.postMessage({id: 'analysis-1', type: 'start', depth: 8, nodes: '100000'})
 The SDK yields tasks between bounded slices and handles stop/reset while preserving
 search progress. Its default full compute profile uses the maximum supported budgets;
 use time/node caps or balanced/responsive profiles for bounded play. Live performance
-updates retain the continuation, while playing-policy changes cancel stale analysis. Counts and seeds use decimal strings. Direct `Engine` bindings,
-raw evaluation, and the original position-only helpers remain available.
+updates retain the continuation, while playing-policy changes cancel stale analysis.
+Counts and seeds use decimal strings. Direct `Engine` bindings, raw evaluation, and
+the original position-only helpers remain available.
 [WASM API and packaging](docs/wasm.md) explain ownership, backend selection, and messages.
 
 ## Development and licensing
@@ -126,5 +144,6 @@ raw evaluation, and the original position-only helpers remain available.
 [Contributor/agent guide](agents.md)
 
 MIT licensed; see [LICENSE](LICENSE). Bundled neural weights retain their separate
-MIT notice in [assets/models/LICENSE](assets/models/LICENSE). Native and WASM
-packages include both notices; preserve them when redistributing.
+notice in [assets/models/LICENSE](assets/models/LICENSE). Native packages include
+applicable Syzygy-probe notices in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md);
+preserve them when redistributing.

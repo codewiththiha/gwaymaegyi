@@ -93,6 +93,13 @@ pub enum Parameter {
     NullEvalDiv,
     RfpMargin,
     RfpMaxDepth,
+    CorrWeight,
+    NodeTmFactor1,
+    NodeTmFactor2,
+    BmFactor1,
+    ScoreDropDiv,
+    ScoreDropMin,
+    ScoreDropMax,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -105,7 +112,7 @@ pub struct ParameterSpec {
 }
 
 impl Parameter {
-    pub const SPECS: [ParameterSpec; 31] = [
+    pub const SPECS: [ParameterSpec; 38] = [
         ParameterSpec {
             parameter: Self::AspirationWindow,
             name: "AspStartWindow",
@@ -323,6 +330,55 @@ impl Parameter {
             min: 6,
             max: 12,
         },
+        ParameterSpec {
+            parameter: Self::CorrWeight,
+            name: "CorrWeight",
+            default: 25,
+            min: 10,
+            max: 40,
+        },
+        ParameterSpec {
+            parameter: Self::NodeTmFactor1,
+            name: "NodeTmFactor1",
+            default: 149,
+            min: 100,
+            max: 200,
+        },
+        ParameterSpec {
+            parameter: Self::NodeTmFactor2,
+            name: "NodeTmFactor2",
+            default: 177,
+            min: 125,
+            max: 225,
+        },
+        ParameterSpec {
+            parameter: Self::BmFactor1,
+            name: "BmFactor1",
+            default: 152,
+            min: 100,
+            max: 200,
+        },
+        ParameterSpec {
+            parameter: Self::ScoreDropDiv,
+            name: "ScoreDropDiv",
+            default: 540,
+            min: 250,
+            max: 850,
+        },
+        ParameterSpec {
+            parameter: Self::ScoreDropMin,
+            name: "ScoreDropMin",
+            default: 90,
+            min: 70,
+            max: 100,
+        },
+        ParameterSpec {
+            parameter: Self::ScoreDropMax,
+            name: "ScoreDropMax",
+            default: 118,
+            min: 100,
+            max: 140,
+        },
     ];
     #[must_use]
     pub const fn spec(self) -> ParameterSpec {
@@ -339,7 +395,7 @@ impl Parameter {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SearchTuning {
-    values: [i32; 31],
+    values: [i32; 38],
     enabled: [bool; 11],
 }
 impl Default for SearchTuning {
@@ -369,5 +425,54 @@ impl SearchTuning {
         }
         self.values[parameter as usize] = value;
         Ok(())
+    }
+
+    /// Return the adaptive soft limit, bounded by the caller's hard time budget.
+    ///
+    /// # Precision
+    /// Timing arithmetic uses `f64`; millisecond budgets are capped by native/WASM
+    /// callers at one day, while node ratios only guide a bounded estimate.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "Times are capped at one day and node precision only guides a bounded ratio."
+    )]
+    #[expect(
+        clippy::cast_sign_loss,
+        reason = "The computed soft limit is clamped to a positive value before conversion."
+    )]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "The rounded positive limit is clamped before conversion; extreme casts saturate."
+    )]
+    #[must_use]
+    pub fn soft_limit_ms(
+        self,
+        original_opt_ms: u64,
+        max_ms: u64,
+        best_move_nodes: u64,
+        nodes: u64,
+        stability: u32,
+        score_delta: i32,
+    ) -> Option<u64> {
+        if original_opt_ms == 0 || max_ms == 0 {
+            return None;
+        }
+        let node_share = best_move_nodes as f64 / nodes.max(1) as f64;
+        let node_factor = (f64::from(self.get(Parameter::NodeTmFactor1)) / 100.0 - node_share)
+            * f64::from(self.get(Parameter::NodeTmFactor2))
+            / 100.0;
+        let stability_factor =
+            f64::from(stability).mul_add(-0.06, f64::from(self.get(Parameter::BmFactor1)) / 100.0);
+        let score_factor =
+            (1.0 + f64::from(score_delta) / f64::from(self.get(Parameter::ScoreDropDiv))).clamp(
+                f64::from(self.get(Parameter::ScoreDropMin)) / 100.0,
+                f64::from(self.get(Parameter::ScoreDropMax)) / 100.0,
+            );
+        let soft = (original_opt_ms as f64 * node_factor)
+            .mul_add(stability_factor, 0.0)
+            .mul_add(score_factor, 0.0)
+            .clamp(1.0, max_ms as f64)
+            .round() as u64;
+        Some(soft)
     }
 }

@@ -11,9 +11,9 @@ placeholder crates for future work. Evidence belongs in [verification](verificat
 | Single-worker search | Deterministic score/move/node snapshots, terminals, bounded limits | Verified |
 | Native/browser control | Real UCI process tests, actual worker stop/reset, stale suppression, transactional inputs | Verified |
 | Playing controls | Validated full/approximate strength, modes, reproducible decisions | Implemented and verified; 21-level controls, ratings uncalibrated |
-| Platform portability | Windows/macOS lints, tests, protocol and snapshot checks | Verified |
-| Parallel native search | Race-free ownership/shutdown and repeatable match testing | Future work |
-| Endgame probing | Real backend fixtures, option tests, legal root selection | Future work |
+| Platform portability | Prior baseline passed; current native adapter only Linux-checked | Extended CI pending |
+| Native parallel analysis | Independent-position batch workers are implemented and bounded | Single-position SMP and shared-cache policy remain future work |
+| Endgame probing | Native WDL and rule-50-aware single-PV root DTZ; optional KRvK fixture and UCI path tests | Broader supplied-table corpus and additional edge cases |
 | Data generation/tools | Reproducible seeds, round-trip datasets, bounded resources | Future work |
 | Strength calibration | Controlled matches against rated opponents, reproducible rating estimates | Future work |
 | Measured optimization | Throughput/memory and match comparisons while retaining native/WASM correctness | Ongoing |

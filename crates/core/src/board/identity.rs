@@ -44,7 +44,7 @@ impl Board {
         state
     }
 
-    fn has_legal_en_passant(&self) -> bool {
+    pub(super) fn has_legal_en_passant(&self) -> bool {
         let Some(target) = self.en_passant else {
             return false;
         };

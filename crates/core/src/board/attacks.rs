@@ -68,6 +68,19 @@ fn rays(square: Square, occupied: Bitboard, directions: &[(i8, i8)]) -> Bitboard
 }
 
 impl Board {
+    /// Returns pseudo-legal attack squares under an explicit occupancy mask.
+    #[must_use]
+    pub fn attacks_from(
+        kind: PieceKind,
+        color: Color,
+        square: Square,
+        occupied: Bitboard,
+    ) -> Bitboard {
+        piece_attacks(kind, color, square, occupied)
+    }
+}
+
+impl Board {
     pub(super) fn is_attacked(&self, square: Square, by: Color, occupied: Bitboard) -> bool {
         let intersects = |kind, attack_color| {
             piece_attacks(kind, attack_color, square, occupied).0 & self.pieces(by, kind).0 != 0

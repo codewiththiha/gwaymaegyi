@@ -170,6 +170,37 @@ impl Engine {
         Ok(self.report())
     }
 
+    /// Calculate the adaptive worker soft limit while preserving a hard cap.
+    pub fn soft_time_limit_ms(
+        &self,
+        original_opt_ms: &str,
+        max_ms: &str,
+        best_move_nodes: &str,
+        nodes: &str,
+        stability: f64,
+        score_delta: f64,
+    ) -> Result<String, JsError> {
+        let parse = |value: &str| {
+            value
+                .parse::<u64>()
+                .map_err(|_| JsError::new("time and node counts must be unsigned decimal strings"))
+        };
+        let soft_ms = self
+            .inner
+            .options()
+            .tuning()
+            .soft_limit_ms(
+                parse(original_opt_ms)?,
+                parse(max_ms)?,
+                parse(best_move_nodes)?,
+                parse(nodes)?,
+                input::integer::<u32>(stability)?,
+                input::integer::<i32>(score_delta)?,
+            )
+            .ok_or_else(|| JsError::new("time budgets must be positive"))?;
+        Ok(soft_ms.to_string())
+    }
+
     #[must_use]
     pub fn limits_json(&self) -> String {
         match (self.inner.requested_limits(), self.inner.effective_limits()) {

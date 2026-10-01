@@ -108,6 +108,7 @@ pub(super) const IDENTIFICATION: &str = concat!(
     env!("CARGO_PKG_VERSION"),
     "\nid author codewiththiha\n\
 option name Hash type spin default 8 min 1 max 64\n\
+option name SyzygyPath type string default\n\
 option name MultiPV type spin default 1 min 1 max 5\n\
 option name Mode type combo default balanced var balanced var aggressive var human-like var analysis\n\
 option name UCI_Chess960 type check default false\n\

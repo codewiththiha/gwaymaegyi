@@ -5,6 +5,7 @@ mod engine;
 mod error;
 mod report;
 mod strength;
+mod tablebase;
 mod tuning;
 
 pub use config::{Mode, Options, SearchLimits};
@@ -12,6 +13,7 @@ pub use engine::Engine;
 pub use error::EngineError;
 pub use report::{Completion, PrincipalVariation, SearchReport, SearchStatus};
 pub use strength::{SkillLevel, Strength};
+pub use tablebase::{TablebaseProbe, TablebaseRoot, TablebaseWdl};
 
 pub const MAX_DEPTH: u8 = 64;
 const MAX_PLY: u8 = 96;

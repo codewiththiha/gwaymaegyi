@@ -2,6 +2,8 @@
 
 Playing style, approximate Elo/skill presets, compute budgets, and search algorithm
 controls are separate. The backend has no GUI and requires no HTTP server.
+Native Syzygy files are an optional platform adapter; the portable search crate
+provides a safe WDL interface with an optional root-DTZ hook.
 
 ## Applied search controls
 
@@ -11,9 +13,10 @@ controls; unsupported algorithms are not advertised as tunable placeholders.
 
 The applied behavior switches are aspiration, null-move, reverse-futility,
 quiet-pruning, late-reductions, razoring, internal-reductions, exchange-pruning,
-history-pruning, probcut, and singular-extensions. Numeric parameters cover aspiration depth/window,
-null-move depth/reduction, reverse futility, quiet futility/LMP, reduction depth,
-and history updates. Invalid names or out-of-range values leave state unchanged.
+history-pruning, probcut, and singular-extensions. Thirty-eight validated parameters
+cover aspiration, pruning, extensions, move/history scoring, score-correction weights,
+and adaptive native/browser time
+limits. Invalid names or out-of-range values leave state unchanged.
 
 Rust callers modify an Options::tuning copy and configure it atomically. UCI
 advertises each numeric option and `Behavior NAME` checks. Direct WASM exposes
@@ -66,8 +69,21 @@ assume that aborting an async wrapper stops an already running CPU search.
 
 Browser builds retain the portable engine and task-scheduled worker protocol. The
 native batch module is not exported for WASM; creating Rust std threads on the
-minimal browser target is not a supported fallback. Independent browser jobs can
-be hosted in separate Web Workers without changing the portable engine.
+minimal browser target is not a supported fallback. The native Pyrrhic adapter uses
+an upstream safe wrapper around its unsafe probing implementation; our adapter and
+WASM bindings remain safe. Interior WDL calls omit the rule-50 clock, so those probes
+skip nonzero halfmove clocks and castling rights. Root DTZ probing does receive the
+clock, is serialized across native callers, and skips castling positions. It supplies
+a best move only for full-strength single-PV searches; multipv, human-style, and
+restricted-strength searches retain normal search behavior. `.rtbw` files enable
+WDL; matching `.rtbz` data enables root DTZ. Disable `SyzygyPath` before changing an
+active path because Pyrrhic owns one process-wide tablebase instance. Startup checks
+readable directories and WDL-file presence, not full table integrity/coverage; failed
+probes fall back to search. No tablebase files are bundled. Browser `timeMs` is a
+non-extendible deadline checked between bounded synchronous worker slices, so one
+slice may overrun; shared time
+factors may select an earlier soft stop. Independent browser jobs can be hosted in
+separate Web Workers without changing the portable engine.
 
 ## Research rationale
 

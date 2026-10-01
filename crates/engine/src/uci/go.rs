@@ -102,13 +102,11 @@ impl Go {
                 | "searchmoves"
         )
     }
-    /// Hard and soft budgets in milliseconds, or none for unbounded play.
+    /// Hard and soft budgets in milliseconds, or none when clock data is absent.
+    /// Ponder budgets are computed here but start only after `ponderhit`.
     /// The reference formula: max is 80% of usable time, opt is 60% of
     /// per-move time plus the increment.
     pub(super) fn time_control(&self, side: usize, overhead: u64) -> Option<(u64, u64)> {
-        if self.state != PlayState::Normal {
-            return None;
-        }
         if let Some(time) = self.move_time {
             let budget = time.saturating_sub(overhead).clamp(1, 86_400_000);
             return Some((budget, budget));
@@ -120,5 +118,26 @@ impl Go {
             .max(1)
             .min(max);
         Some((max, opt))
+    }
+
+    pub(super) const fn adaptive_time(&self) -> bool {
+        self.move_time.is_none()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Go;
+
+    #[test]
+    fn ponder_clocks_are_deferred_and_movetime_stays_fixed() -> Result<(), String> {
+        let ponder = Go::parse(&["ponder", "wtime", "20000", "winc", "1000"])?;
+        assert_eq!(ponder.time_control(0, 20), Some((15_984, 1_199)));
+        assert!(ponder.adaptive_time());
+
+        let movetime = Go::parse(&["movetime", "5000"])?;
+        assert_eq!(movetime.time_control(0, 20), Some((4_980, 4_980)));
+        assert!(!movetime.adaptive_time());
+        Ok(())
     }
 }

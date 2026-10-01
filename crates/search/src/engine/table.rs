@@ -53,8 +53,11 @@ impl Cache {
             history: History::default(),
         })
     }
-    pub(super) fn clear(&mut self) {
+    pub(super) fn clear_entries(&mut self) {
         self.entries.fill(None);
+    }
+    pub(super) fn clear(&mut self) {
+        self.clear_entries();
         self.history = History::default();
     }
     pub(super) const fn next_search(&mut self) {

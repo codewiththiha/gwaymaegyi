@@ -13,5 +13,8 @@ repository.workspace = true
 gwaymaegyi-core.workspace = true
 gwaymaegyi-search.workspace = true
 
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+pyrrhic-rs = "=0.2.0"
+
 [lints]
 workspace = true

@@ -5,7 +5,7 @@ use crate::engine::{
     frame::{Action, CachePolicy, Frame, NodeResult, Pending, Probe, ScoredMove, Stage},
     table::{Bound, Cache},
 };
-use crate::{Behavior, EngineError, INFINITY, MATE, MAX_PLY, Parameter};
+use crate::{Behavior, EngineError, INFINITY, MATE, MAX_PLY, Mode, Parameter, Strength};
 use gwaymaegyi_core::PieceKind;
 
 impl Task {
@@ -34,6 +34,9 @@ impl Task {
             return action;
         }
         frame.evaluation = self.evaluate(frame);
+        let corr = cache.history.correction(&frame.board, self.priors());
+        frame.evaluation = (frame.evaluation + tuning.get(Parameter::CorrWeight) * corr / 512)
+            .clamp(-28_000, 28_000);
         let improving = frame.ply > 1
             && !frame.flags.in_check()
             && self
@@ -65,6 +68,9 @@ impl Task {
         }
         if let Some(result) = Self::cached(frame) {
             return Action::Complete(result);
+        }
+        if let Some(result) = self.tablebase(frame) {
+            return result;
         }
         if tuning.enabled(Behavior::InternalReductions)
             && (frame.flags.pv_node() || frame.flags.cutnode())
@@ -108,6 +114,30 @@ impl Task {
             return action;
         }
         Action::Keep
+    }
+
+    fn tablebase(&mut self, frame: &Frame) -> Option<Action> {
+        if frame.depth <= 0
+            || frame.ply == 0
+            || frame.flags.synthetic()
+            || matches!(self.options.strength(), Strength::Approximate(_))
+            || self.options.mode() == Mode::Human
+        {
+            return None;
+        }
+        let wdl = self.tablebase.as_ref()?.probe_wdl(&frame.board)?;
+        self.report.tablebase_hits = self.report.tablebase_hits.saturating_add(1);
+        let score = match wdl {
+            crate::TablebaseWdl::Win => 29_000,
+            crate::TablebaseWdl::Loss => -29_000,
+            crate::TablebaseWdl::Draw
+            | crate::TablebaseWdl::CursedWin
+            | crate::TablebaseWdl::BlessedLoss => 0,
+        };
+        Some(Action::Complete(NodeResult {
+            score,
+            pv: Vec::new(),
+        }))
     }
 
     fn filtered_successors(&self, frame: &mut Frame) -> Vec<gwaymaegyi_core::Successor> {

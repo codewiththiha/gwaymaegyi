@@ -110,6 +110,9 @@ jobs:
           mkdir -p pkg/native
           cp target/release/gwaymaegyi LICENSE pkg/native/
           cp assets/models/LICENSE pkg/native/MODEL-LICENSE
+          cp THIRD_PARTY_NOTICES.md pkg/native/
+          mkdir -p pkg/native/licenses
+          cp licenses/*.txt pkg/native/licenses/
       - name: Attach native executable
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

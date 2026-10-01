@@ -28,6 +28,7 @@ impl EngineReport {
                 Completion::Nodes => "nodes",
                 Completion::Stopped => "stopped",
                 Completion::Terminal => "terminal",
+                Completion::Tablebase => "tablebase",
             },
         }
         .into()
@@ -64,6 +65,18 @@ impl EngineReport {
     pub fn nodes(&self) -> String {
         self.report.nodes.to_string()
     }
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn best_move_nodes(&self) -> String {
+        self.report.best_move_nodes.to_string()
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn tablebase_hits(&self) -> String {
+        self.report.tablebase_hits.to_string()
+    }
+
     #[must_use]
     #[wasm_bindgen(getter)]
     pub fn best_move(&self) -> Option<String> {

@@ -1,11 +1,13 @@
 //! Process boundary selecting UCI or utility commands and mapping exit failures.
 
+#[cfg(not(target_family = "wasm"))]
 use std::{
     env,
     io::{self, Write},
     process::ExitCode,
 };
 
+#[cfg(not(target_family = "wasm"))]
 fn main() -> ExitCode {
     let args: Vec<_> = env::args().skip(1).collect();
     let mut output = io::stdout().lock();
@@ -22,3 +24,6 @@ fn main() -> ExitCode {
         }
     }
 }
+
+#[cfg(target_family = "wasm")]
+fn main() {}

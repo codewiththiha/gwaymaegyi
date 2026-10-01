@@ -1,10 +1,25 @@
 //! Search determinism, limits, legal output, policy controls, and rollback regressions.
 
-use gwaymaegyi_core::{Game, START_FEN};
+use gwaymaegyi_core::{Board, Game, Move, START_FEN};
 use gwaymaegyi_search::{
-    Completion, Engine, Mode, Options, SearchLimits, SearchReport, SearchStatus,
+    Completion, Engine, Mode, Options, SearchLimits, SearchReport, SearchStatus, TablebaseProbe,
+    TablebaseRoot, TablebaseWdl,
 };
-use std::error::Error;
+use std::{error::Error, sync::Arc};
+
+#[derive(Debug)]
+struct FixedRootTablebase(TablebaseRoot);
+impl TablebaseProbe for FixedRootTablebase {
+    fn max_pieces(&self) -> u32 {
+        7
+    }
+    fn probe_wdl(&self, _board: &Board) -> Option<TablebaseWdl> {
+        None
+    }
+    fn probe_root(&self, _board: &Board, _allowed: &[Move]) -> Option<TablebaseRoot> {
+        Some(self.0)
+    }
+}
 
 fn finish(engine: &mut Engine, quantum: u32) -> Result<SearchReport, Box<dyn Error>> {
     for _ in 0..200_000 {
@@ -418,5 +433,97 @@ fn all_algorithm_behaviors_are_discoverable_and_instance_owned() -> Result<(), B
     let report = finish(&mut engine, 128)?;
     assert_eq!(report.depth, 2);
     assert!(report.best_move.is_some());
+    Ok(())
+}
+
+#[test]
+fn reference_tuning_inventory_is_discoverable_and_in_range() -> Result<(), Box<dyn Error>> {
+    use gwaymaegyi_search::Parameter;
+    assert_eq!(Parameter::SPECS.len(), 38);
+    for spec in Parameter::SPECS {
+        assert!(spec.min <= spec.default && spec.default <= spec.max);
+        assert_eq!(Parameter::parse(spec.name)?, spec.parameter);
+    }
+    Ok(())
+}
+
+#[derive(Debug)]
+struct DrawTablebase;
+impl TablebaseProbe for DrawTablebase {
+    fn max_pieces(&self) -> u32 {
+        32
+    }
+    fn probe_wdl(&self, _: &Board) -> Option<TablebaseWdl> {
+        Some(TablebaseWdl::Draw)
+    }
+}
+
+#[test]
+fn tablebase_wdl_is_used_only_below_the_root_and_reported() -> Result<(), Box<dyn Error>> {
+    use std::sync::Arc;
+    let mut engine = Engine::new()?;
+    engine.set_tablebase(Some(Arc::new(DrawTablebase)));
+    engine.start(SearchLimits {
+        depth: 2,
+        nodes: 20_000,
+    })?;
+    let report = finish(&mut engine, 128)?;
+    assert!(report.tablebase_hits > 0);
+    assert!(report.score_cp.is_some());
+    engine.set_tablebase(None);
+    assert!(!engine.searching());
+    Ok(())
+}
+
+#[test]
+fn root_tablebase_is_exact_but_respects_search_controls() -> Result<(), Box<dyn Error>> {
+    let fen = "8/8/8/2R5/1K6/8/5k2/8 w - - 0 1";
+    let board: Board = fen.parse()?;
+    let tablebase_move = board.resolve_uci("c5c4", false)?;
+    let probe = Arc::new(FixedRootTablebase(TablebaseRoot {
+        best_move: tablebase_move,
+        wdl: TablebaseWdl::Win,
+        dtz: 21,
+    }));
+    let limits = SearchLimits {
+        depth: 3,
+        nodes: 20_000,
+    };
+
+    let mut exact = Engine::new()?;
+    exact.set_tablebase(Some(probe.clone()));
+    exact.set_position(fen, &[])?;
+    exact.start(limits)?;
+    let report = exact.report();
+    assert_eq!(report.status, SearchStatus::Finished(Completion::Tablebase));
+    assert_eq!(report.best_move, Some(tablebase_move));
+    assert_eq!(report.score_cp, Some(29_000));
+    assert_eq!(report.mate_in(), None);
+    assert_eq!(report.tablebase_hits, 1);
+    assert_eq!(report.nodes, 0);
+
+    let allowed_move = board.resolve_uci("c5b5", false)?;
+    let mut filtered = Engine::new()?;
+    filtered.set_tablebase(Some(probe.clone()));
+    filtered.set_position(fen, &[])?;
+    filtered.start_moves(limits, &["c5b5"])?;
+    assert_eq!(filtered.report().status, SearchStatus::Running);
+    let filtered_report = finish(&mut filtered, 128)?;
+    assert_eq!(filtered_report.best_move, Some(allowed_move));
+    assert_ne!(
+        filtered_report.status,
+        SearchStatus::Finished(Completion::Tablebase)
+    );
+
+    let mut options = Options::default();
+    options.set_multi_pv(2)?;
+    let mut multipv = Engine::new()?;
+    multipv.set_tablebase(Some(probe));
+    multipv.configure(options)?;
+    multipv.set_position(fen, &[])?;
+    multipv.start(limits)?;
+    assert_eq!(multipv.report().status, SearchStatus::Running);
+    let multipv_report = finish(&mut multipv, 128)?;
+    assert_eq!(multipv_report.variations.len(), 2);
     Ok(())
 }

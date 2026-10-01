@@ -73,3 +73,19 @@ impl Board {
         Some(child)
     }
 }
+
+impl Board {
+    /// True when either side retains at least one rook-origin castling right.
+    #[must_use]
+    pub fn has_castling_rights(&self) -> bool {
+        self.castling.rooks.iter().flatten().any(Option::is_some)
+    }
+
+    /// Returns the en-passant square only when a legal capture is available.
+    #[must_use]
+    pub fn legal_en_passant_square(&self) -> Option<crate::Square> {
+        self.has_legal_en_passant()
+            .then_some(self.en_passant)
+            .flatten()
+    }
+}
