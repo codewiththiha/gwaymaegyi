@@ -122,6 +122,28 @@ impl Engine {
         Ok(())
     }
 
+    #[must_use]
+    pub fn requested_limits(&self) -> Option<SearchLimits> {
+        self.task.as_ref().map(|task| task.requested_limits)
+    }
+
+    #[must_use]
+    pub fn effective_limits(&self) -> Option<SearchLimits> {
+        self.task.as_ref().map(|task| task.limits)
+    }
+
+    /// Valid budget changes retain the active continuation; exhausted caps stop it immediately.
+    pub fn set_limits(&mut self, limits: SearchLimits) -> Result<(), EngineError> {
+        let limits = limits.validate()?;
+        let task = self
+            .task
+            .as_mut()
+            .filter(|task| task.report.status == SearchStatus::Running)
+            .ok_or(EngineError::NoActiveSearch)?;
+        task.update_limits(limits);
+        Ok(())
+    }
+
     /// A work unit advances one state transition; the continuation is retained exactly.
     pub fn step(&mut self, work: u32) -> Result<SearchReport, EngineError> {
         if !(1..=65_536).contains(&work) {

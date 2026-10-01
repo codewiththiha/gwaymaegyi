@@ -97,8 +97,15 @@ pub fn capabilities_json() -> String {
         .map(|mode| format!("\"{}\"", mode.as_str()))
         .collect::<Vec<_>>()
         .join(",");
+    let skills = gwaymaegyi_search::SkillLevel::NOMINAL_ELO
+        .iter()
+        .enumerate()
+        .map(|(index, elo)| format!("{{\"level\":{},\"elo\":{elo}}}", index + 1))
+        .chain(std::iter::once("{\"level\":21,\"elo\":0}".into()))
+        .collect::<Vec<_>>()
+        .join(",");
     format!(
-        "{{\"version\":\"{}\",\"modes\":[{modes}],\"eloMin\":500,\"eloMax\":3000,\"eloCalibrated\":false,\"maxDepth\":{},\"maxMultiPv\":5,\"maxHashMiB\":64,\"maxWork\":65536,\"cooperativeSearch\":true,\"chess960\":true,\"simd128\":{}}}",
+        "{{\"version\":\"{}\",\"modes\":[{modes}],\"eloMin\":500,\"eloMax\":3000,\"eloCalibrated\":false,\"skillLevels\":[{skills}],\"performanceProfiles\":[\"full\",\"balanced\",\"responsive\"],\"liveLimits\":true,\"maxDepth\":{},\"maxMultiPv\":5,\"maxHashMiB\":64,\"maxWork\":65536,\"cooperativeSearch\":true,\"chess960\":true,\"simd128\":{}}}",
         env!("CARGO_PKG_VERSION"),
         gwaymaegyi_search::MAX_DEPTH,
         cfg!(all(target_arch = "wasm32", target_feature = "simd128"))

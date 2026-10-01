@@ -4,11 +4,13 @@ mod config;
 mod engine;
 mod error;
 mod report;
+mod strength;
 
-pub use config::{Mode, Options, SearchLimits, Strength};
+pub use config::{Mode, Options, SearchLimits};
 pub use engine::Engine;
 pub use error::EngineError;
 pub use report::{Completion, PrincipalVariation, SearchReport, SearchStatus};
+pub use strength::{SkillLevel, Strength};
 
 pub const MAX_DEPTH: u8 = 64;
 const MAX_PLY: u8 = 96;

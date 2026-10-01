@@ -3,27 +3,7 @@
 
 import {createScheduler} from './scheduler.mjs';
 
-const integer = (value, min, max, name) => {
-  if (!Number.isSafeInteger(value) || value < min || value > max) {
-    throw new Error(`${name} must be an integer from ${min} through ${max}`);
-  }
-  return value;
-};
-const text = (value, max, name) => {
-  if (typeof value !== 'string' || value.length > max) throw new Error(`invalid ${name}`);
-  return value;
-};
-const moves = value => {
-  if (!Array.isArray(value) || value.length > 2048) throw new Error('invalid move list');
-  return value.map(move => text(move, 5, 'move'));
-};
-const decimal = value => {
-  if (typeof value === 'number' && (!Number.isSafeInteger(value) || value < 0)) {
-    throw new Error('use decimal strings for large integers');
-  }
-  if (!['string', 'number', 'bigint'].includes(typeof value)) throw new Error('invalid decimal integer');
-  return text(String(value), 20, 'decimal integer');
-};
+import {configure, computeOptions, moves, text} from './controls.mjs';
 
 export function copyReport(raw) {
   try {
@@ -48,6 +28,8 @@ export function createRuntime(factory, post, hooks = {}) {
     fen: engine.fen, outcome: engine.outcome, claims: engine.claims, legalMoves: engine.legal_moves,
     mode: engine.mode, elo: engine.elo, hashMiB: engine.hash_mib,
     multiPv: engine.multi_pv, chess960: engine.chess960, seed: engine.seed,
+    skillLevel: engine.skill_level ?? null, limits: JSON.parse(engine.limits_json()),
+    fullStrength: engine.elo === 0 || engine.mode === 'analysis',
   });
   const replace = () => {
     if (current) {
@@ -62,7 +44,7 @@ export function createRuntime(factory, post, hooks = {}) {
       if (job.deadline !== null && now() >= job.deadline) job.last = copyReport(engine.stop());
       else job.last = copyReport(engine.step(job.quantum));
       const finished = job.last.finished;
-      if (finished || job.last.depth !== job.publishedDepth || now() - job.publishedAt >= 50) {
+      if (finished || job.last.depth !== job.publishedDepth || now() - job.publishedAt >= job.reportIntervalMs) {
         post({id: job.id, type: finished ? 'done' : 'progress', report: job.last});
         job.publishedDepth = job.last.depth;
         job.publishedAt = now();
@@ -86,15 +68,7 @@ export function createRuntime(factory, post, hooks = {}) {
       if (disposed) throw new Error('worker is disposed');
       switch (message.type) {
         case 'configure': {
-          const cfg = message.options;
-          if (!cfg || typeof cfg !== 'object') throw new Error('configure requires options');
-          const chess960 = cfg.chess960 ?? engine.chess960;
-          if (typeof chess960 !== 'boolean') throw new Error('chess960 must be boolean');
-          engine.configure(text(cfg.mode ?? engine.mode, 16, 'mode'),
-            integer(cfg.elo ?? engine.elo, 0, 3000, 'elo'),
-            integer(cfg.hashMiB ?? engine.hash_mib, 1, 64, 'hashMiB'),
-            integer(cfg.multiPv ?? engine.multi_pv, 1, 5, 'multiPv'),
-            chess960, decimal(cfg.seed ?? engine.seed));
+          configure(engine, message.options);
           replace();
           post({id, type: 'ack', state: state()});
           break;
@@ -109,17 +83,31 @@ export function createRuntime(factory, post, hooks = {}) {
           engine.reset(); replace(); post({id, type: 'ack', state: state()}); break;
         case 'start': {
           if (current && current.id === id) throw new Error('active search ids must be unique');
-          const depth = integer(message.depth ?? 8, 1, 64, 'depth');
-          const nodes = decimal(message.nodes ?? '100000');
-          const quantum = integer(message.quantum ?? 256, 1, 65536, 'quantum');
-          const time = message.timeMs === undefined ? null : integer(message.timeMs, 1, 86400000, 'timeMs');
+          const compute = computeOptions(message);
           const roots = moves(message.roots ?? []);
-          const initial = copyReport(engine.start_moves(depth, nodes, roots));
+          const initial = copyReport(engine.start_moves(compute.depth, compute.nodes, roots));
           replace();
-          const job = {id, quantum, deadline: time === null ? null : now() + time,
+          const job = {id, ...compute, deadline: compute.timeMs == null ? null : now() + compute.timeMs,
             last: initial, publishedDepth: -1, publishedAt: now(), timer: null};
           current = job;
           job.timer = schedule(() => pump(job));
+          break;
+        }
+        case 'performance': {
+          if (!current) throw new Error('a running search is required to adjust performance');
+          if (message.target !== undefined && current.id !== message.target) throw new Error('no matching active search');
+          const job = current;
+          const compute = computeOptions(message.options, job);
+          const report = copyReport(engine.set_limits(compute.depth, compute.nodes));
+          Object.assign(job, compute, {last: report});
+          if (compute.timeMs !== undefined) job.deadline = compute.timeMs === null ? null : now() + compute.timeMs;
+          if (report.finished) {
+            cancel(job.timer); current = null;
+            post({id: job.id, type: 'done', report});
+          }
+          post({id, type: 'ack', report, performance: {
+            depth: job.depth, nodes: job.nodes, quantum: job.quantum, reportIntervalMs: job.reportIntervalMs,
+          }, limits: JSON.parse(engine.limits_json())});
           break;
         }
         case 'stop':

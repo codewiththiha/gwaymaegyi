@@ -52,6 +52,7 @@ def main(executable):
         identification = engine.until("uciok")
         assert any("uncalibrated" in line for line in identification)
         assert any("UCI_Chess960" in line for line in identification)
+        assert any("Skill_Level type spin default 21 min 1 max 21" in line for line in identification)
         engine.send("isready")
         engine.until("readyok")
 

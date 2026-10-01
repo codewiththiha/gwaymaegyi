@@ -20,6 +20,7 @@ pub(super) struct Task {
     pub game: Game,
     pub options: Options,
     pub limits: SearchLimits,
+    pub requested_limits: SearchLimits,
     pub frames: Vec<Frame>,
     pub report: SearchReport,
     pub iteration: u8,
@@ -63,6 +64,7 @@ impl Task {
             game: game.clone(),
             options,
             limits: options.limit(limits),
+            requested_limits: limits,
             frames,
             report: SearchReport {
                 status,
@@ -130,6 +132,16 @@ impl Task {
             }
         }
         Ok(())
+    }
+
+    pub(super) fn update_limits(&mut self, limits: SearchLimits) {
+        self.requested_limits = limits;
+        self.limits = self.options.limit(limits);
+        if self.report.nodes >= self.limits.nodes {
+            self.stop(Completion::Nodes);
+        } else if self.report.depth >= self.limits.depth {
+            self.stop(Completion::Depth);
+        }
     }
 
     pub(super) fn stop(&mut self, reason: Completion) {

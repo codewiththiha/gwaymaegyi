@@ -9,7 +9,7 @@
 mod input;
 use crate::{EngineReport, js_error};
 use gwaymaegyi_core::{ClaimableDraw, Color, DrawReason, Outcome, START_FEN};
-use gwaymaegyi_search::{Engine as CoreEngine, Strength};
+use gwaymaegyi_search::{Engine as CoreEngine, SearchLimits, SkillLevel, Strength};
 use wasm_bindgen::prelude::*;
 
 /// Stateful browser API; hosts decide when to advance each retained continuation.
@@ -60,6 +60,50 @@ impl Engine {
         options.set_elo(input::integer(elo)?).map_err(js_error)?;
         self.inner.configure(options).map_err(js_error)
     }
+    /// Validated preset control; level 21 disables deliberate strength reduction.
+    pub fn set_skill_level(&mut self, level: f64) -> Result<(), JsError> {
+        let level = SkillLevel::new(input::integer(level)?).map_err(js_error)?;
+        let mut options = self.inner.options();
+        options.set_skill_level(level);
+        self.inner.configure(options).map_err(js_error)
+    }
+
+    pub fn configure_skill(
+        &mut self,
+        mode: &str,
+        level: f64,
+        hash_mib: f64,
+        multi_pv: f64,
+        chess960: bool,
+        seed: &str,
+    ) -> Result<(), JsError> {
+        let level = SkillLevel::new(input::integer(level)?).map_err(js_error)?;
+        self.configure(
+            mode,
+            f64::from(level.nominal_elo().unwrap_or(0)),
+            hash_mib,
+            multi_pv,
+            chess960,
+            seed,
+        )
+    }
+
+    pub fn set_hash_mib(&mut self, size: f64) -> Result<(), JsError> {
+        let mut options = self.inner.options();
+        options
+            .set_hash_mib(input::integer(size)?)
+            .map_err(js_error)?;
+        self.inner.configure(options).map_err(js_error)
+    }
+
+    pub fn set_multi_pv(&mut self, count: f64) -> Result<(), JsError> {
+        let mut options = self.inner.options();
+        options
+            .set_multi_pv(input::integer(count)?)
+            .map_err(js_error)?;
+        self.inner.configure(options).map_err(js_error)
+    }
+
     pub fn reset(&mut self) -> Result<(), JsError> {
         self.inner.set_position(START_FEN, &[]).map_err(js_error)
     }
@@ -74,6 +118,31 @@ impl Engine {
     pub fn play_uci(&mut self, notation: &str) -> Result<(), JsError> {
         self.inner.play_uci(notation).map_err(js_error)
     }
+    /// Maximum supported compute budget; selected approximate strength caps still apply.
+    pub fn start_full(&mut self) -> Result<EngineReport, JsError> {
+        self.inner.start(SearchLimits::full()).map_err(js_error)?;
+        Ok(self.report())
+    }
+
+    /// Running budget changes retain the exact continuation; invalid updates change nothing.
+    pub fn set_limits(&mut self, depth: f64, nodes: &str) -> Result<EngineReport, JsError> {
+        self.inner
+            .set_limits(input::limits(depth, nodes)?)
+            .map_err(js_error)?;
+        Ok(self.report())
+    }
+
+    #[must_use]
+    pub fn limits_json(&self) -> String {
+        match (self.inner.requested_limits(), self.inner.effective_limits()) {
+            (Some(requested), Some(effective)) => format!(
+                "{{\"requested\":{{\"depth\":{},\"nodes\":\"{}\"}},\"effective\":{{\"depth\":{},\"nodes\":\"{}\"}}}}",
+                requested.depth, requested.nodes, effective.depth, effective.nodes
+            ),
+            _ => "null".into(),
+        }
+    }
+
     pub fn start(&mut self, depth: f64, nodes: &str) -> Result<EngineReport, JsError> {
         self.inner
             .start(input::limits(depth, nodes)?)
@@ -113,6 +182,12 @@ impl Engine {
     #[must_use]
     pub fn evaluate(&self) -> i32 {
         self.inner.evaluate()
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn skill_level(&self) -> Option<u8> {
+        self.inner.options().skill_level().map(SkillLevel::value)
     }
 
     #[must_use]

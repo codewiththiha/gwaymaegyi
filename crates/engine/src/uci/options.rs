@@ -1,6 +1,6 @@
 //! UCI option validation and protocol discovery, committed atomically to the engine.
 
-use gwaymaegyi_search::Engine;
+use gwaymaegyi_search::{Engine, SkillLevel};
 
 #[derive(Debug)]
 pub(super) struct ProtocolOptions {
@@ -53,6 +53,14 @@ impl ProtocolOptions {
                     return Err("Elo must be 500 through 3000".into());
                 }
             }
+            "skill_level" => {
+                let level = SkillLevel::new(value.parse().map_err(|_| "invalid skill level")?)
+                    .map_err(|error| error.to_string())?;
+                limited = level != SkillLevel::FULL;
+                if let Some(target) = level.nominal_elo() {
+                    elo = target;
+                }
+            }
             "seed" => options.set_seed(value.parse().map_err(|_| "invalid seed")?),
             "move overhead" => {
                 overhead = value.parse().map_err(|_| "invalid move overhead")?;
@@ -89,8 +97,28 @@ option name Mode type combo default balanced var balanced var aggressive var hum
 option name UCI_Chess960 type check default false\n\
 option name UCI_LimitStrength type check default false\n\
 option name UCI_Elo type spin default 1500 min 500 max 3000\n\
+option name Skill_Level type spin default 21 min 1 max 21\n\
 option name Seed type string default 19\n\
 option name Move Overhead type spin default 20 min 0 max 5000\n\
 option name Ponder type check default false\n\
 info string Elo targets are uncalibrated resource and error-tolerance presets\nuciok"
 );
+
+#[cfg(test)]
+mod tests {
+    use super::ProtocolOptions;
+    use gwaymaegyi_search::{Engine, Strength};
+    use std::error::Error;
+    #[test]
+    fn skill_options_commit_the_mapped_strength() -> Result<(), Box<dyn Error>> {
+        let mut engine = Engine::new()?;
+        let mut options = ProtocolOptions::default();
+        options.set(&mut engine, "Skill_Level", "10")?;
+        assert_eq!(engine.options().strength(), Strength::Approximate(1800));
+        assert!(options.set(&mut engine, "Skill_Level", "22").is_err());
+        assert_eq!(engine.options().strength(), Strength::Approximate(1800));
+        options.set(&mut engine, "Skill_Level", "21")?;
+        assert_eq!(engine.options().strength(), Strength::Full);
+        Ok(())
+    }
+}

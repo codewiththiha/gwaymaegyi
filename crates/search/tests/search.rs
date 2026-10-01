@@ -221,3 +221,81 @@ fn optional_clock_claims_do_not_hide_a_mating_root_move() -> Result<(), Box<dyn 
     assert_eq!(finish(&mut engine, 64)?.score_cp, Some(29_999));
     Ok(())
 }
+
+#[test]
+fn skill_presets_cover_the_documented_levels() -> Result<(), Box<dyn Error>> {
+    use gwaymaegyi_search::{SkillLevel, Strength};
+    let mut options = Options::default();
+    assert_eq!(options.skill_level(), Some(SkillLevel::FULL));
+    for (index, &elo) in SkillLevel::NOMINAL_ELO.iter().enumerate() {
+        let level = SkillLevel::new(u8::try_from(index + 1)?)?;
+        options.set_skill_level(level);
+        assert_eq!(options.strength(), Strength::Approximate(elo));
+        assert_eq!(options.skill_level(), Some(level));
+    }
+    assert!(SkillLevel::new(0).is_err());
+    assert!(SkillLevel::new(22).is_err());
+    options.set_elo(1350)?;
+    assert_eq!(options.skill_level(), None);
+    options.set_skill_level(SkillLevel::FULL);
+    assert_eq!(options.strength(), Strength::Full);
+    Ok(())
+}
+
+#[test]
+fn live_budget_updates_preserve_search_progress() -> Result<(), Box<dyn Error>> {
+    let mut a = Engine::new()?;
+    let mut b = Engine::new()?;
+    let short = SearchLimits {
+        depth: 2,
+        nodes: 20_000,
+    };
+    let long = SearchLimits {
+        depth: 3,
+        nodes: 20_000,
+    };
+    a.start(short)?;
+    b.start(long)?;
+    a.step(25)?;
+    b.step(25)?;
+    let before = a.report();
+    assert!(a.set_limits(SearchLimits { depth: 0, nodes: 0 }).is_err());
+    assert_eq!(a.report(), before);
+    a.set_limits(long)?;
+    assert_eq!(a.report(), before);
+    assert_eq!(a.requested_limits(), Some(long));
+    assert_eq!(finish(&mut a, 128)?, finish(&mut b, 128)?);
+    a.start(SearchLimits::full())?;
+    a.step(16)?;
+    let used = a.report().nodes;
+    a.set_limits(SearchLimits {
+        depth: 64,
+        nodes: used,
+    })?;
+    assert_eq!(a.report().nodes, used);
+    assert_eq!(a.report().status, SearchStatus::Finished(Completion::Nodes));
+    assert!(a.set_limits(long).is_err());
+    Ok(())
+}
+
+#[test]
+fn limited_strength_remains_in_force_when_compute_caps_increase() -> Result<(), Box<dyn Error>> {
+    let mut engine = Engine::new()?;
+    let mut options = engine.options();
+    options.set_elo(500)?;
+    engine.configure(options)?;
+    engine.start(SearchLimits {
+        depth: 3,
+        nodes: 1000,
+    })?;
+    engine.set_limits(SearchLimits::full())?;
+    assert_eq!(engine.requested_limits(), Some(SearchLimits::full()));
+    assert_eq!(
+        engine.effective_limits(),
+        Some(SearchLimits {
+            depth: 1,
+            nodes: 256
+        })
+    );
+    Ok(())
+}

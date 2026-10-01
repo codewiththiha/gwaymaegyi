@@ -5,7 +5,7 @@
     reason = "Validation failures are documented in plain prose."
 )]
 
-use crate::{EngineError, MAX_DEPTH};
+use crate::{EngineError, MAX_DEPTH, SkillLevel, Strength};
 use std::str::FromStr;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -42,14 +42,6 @@ impl FromStr for Mode {
             .find(|mode| mode.as_str() == value)
             .ok_or(EngineError::InvalidMode)
     }
-}
-
-/// These are resource/error-tolerance presets, not calibrated playing ratings.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum Strength {
-    #[default]
-    Full,
-    Approximate(u16),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -107,6 +99,15 @@ impl Options {
     }
     pub const fn set_seed(&mut self, seed: u64) {
         self.seed = seed;
+    }
+
+    #[must_use]
+    pub fn skill_level(self) -> Option<SkillLevel> {
+        SkillLevel::from_strength(self.strength)
+    }
+
+    pub const fn set_skill_level(&mut self, level: SkillLevel) {
+        self.strength = level.strength();
     }
 
     /// Zero selects full strength; other supported values select uncalibrated presets.
@@ -223,6 +224,15 @@ impl Default for SearchLimits {
     }
 }
 impl SearchLimits {
+    /// Maximum supported depth and node budget, still subject to the selected strength policy.
+    #[must_use]
+    pub const fn full() -> Self {
+        Self {
+            depth: MAX_DEPTH,
+            nodes: u64::MAX,
+        }
+    }
+
     /// Invalid limits are rejected before replacing an active search.
     pub const fn validate(self) -> Result<Self, EngineError> {
         if self.depth == 0 || self.depth > MAX_DEPTH || self.nodes == 0 {
