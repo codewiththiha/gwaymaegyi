@@ -102,19 +102,23 @@ impl Go {
                 | "searchmoves"
         )
     }
-    pub(super) fn budget_ms(&self, side: usize, overhead: u64) -> Option<u64> {
-        if self.state == PlayState::Infinite {
+    /// Hard and soft budgets in milliseconds, or none for unbounded play.
+    /// The reference formula: max is 80% of usable time, opt is 60% of
+    /// per-move time plus the increment.
+    pub(super) fn time_control(&self, side: usize, overhead: u64) -> Option<(u64, u64)> {
+        if self.state != PlayState::Normal {
             return None;
         }
         if let Some(time) = self.move_time {
-            return Some(time.saturating_sub(overhead).clamp(1, 86_400_000));
+            let budget = time.saturating_sub(overhead).clamp(1, 86_400_000);
+            return Some((budget, budget));
         }
-        self.remaining[side].map(|time| {
-            let usable = time.saturating_sub(overhead);
-            (usable / self.horizon.clamp(1, 64))
-                .saturating_add(self.increments[side].saturating_mul(3) / 4)
-                .min(usable / 2)
-                .clamp(1, 86_400_000)
-        })
+        let time = self.remaining[side]?;
+        let usable = time.saturating_sub(overhead);
+        let max = (usable.saturating_mul(8) / 10).clamp(1, 86_400_000);
+        let opt = ((usable / 20 + self.increments[side]).saturating_mul(6) / 10)
+            .max(1)
+            .min(max);
+        Some((max, opt))
     }
 }

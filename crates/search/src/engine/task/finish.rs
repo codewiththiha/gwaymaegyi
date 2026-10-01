@@ -173,6 +173,18 @@ impl Task {
             }
             self.report.depth = self.iteration;
             self.report.variations = std::mem::take(&mut self.lines);
+            self.report.best_move_nodes = self
+                .report
+                .variations
+                .first()
+                .and_then(|line| line.moves.first())
+                .and_then(|move_| {
+                    self.root_moves
+                        .iter()
+                        .position(|root| *root == *move_)
+                        .map(|index| self.root_nodes[index])
+                })
+                .unwrap_or(0);
             // Lines complete in search order, not score order; publish them sorted.
             self.report
                 .variations
@@ -195,6 +207,7 @@ impl Task {
             self.stop(Completion::Depth);
         } else {
             self.iteration += 1;
+            self.root_nodes.fill(0);
         }
     }
 

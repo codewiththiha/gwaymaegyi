@@ -39,3 +39,13 @@ Skill_Level 1–20 selects the documented nominal preset table; level 21 restore
 strength. Setting a valid skill level activates its strength selection immediately
 when the command is processed. The preset labels remain uncalibrated. The complete
 mapping and shared WASM endpoints are in [controls](controls.md).
+
+## Adaptive time management
+
+Clock games use the reference soft-limit policy. The hard cap is 80% of the
+usable side time; the initial soft limit is 60% of one move's share plus the
+increment. After each completed iteration the soft limit is rescaled by the
+best move's node share, its stability across iterations, and a smoothed
+score-drop factor (clamped to 0.90-1.18). Search stops at the soft limit or
+hard cap, whichever comes first. `movetime` disables adaptation; `infinite` and
+`ponder` searches have no clock deadline until stopped or answered.

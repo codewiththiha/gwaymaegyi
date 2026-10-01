@@ -91,10 +91,10 @@ mod tests {
         assert!(matches!(Command::parse("go depth 0"), Command::Invalid(_)));
         assert!(matches!(Command::parse("go nodes -1"), Command::Invalid(_)));
         assert!(
-            matches!(Command::parse("go depth 10"),Command::Go(go) if go.limits.depth==10 && go.budget_ms(0,20).is_none())
+            matches!(Command::parse("go depth 10"),Command::Go(go) if go.limits.depth==10 && go.time_control(0,20).is_none())
         );
         assert!(
-            matches!(Command::parse("go wtime 18446744073709551615"),Command::Go(go) if go.budget_ms(0,20).is_some_and(|time|time<=86_400_000))
+            matches!(Command::parse("go wtime 18446744073709551615"),Command::Go(go) if go.time_control(0,20).is_some_and(|(max,_)|max<=86_400_000))
         );
         assert!(
             matches!(Command::parse("go infinite"),Command::Go(go) if go.limits.depth==MAX_DEPTH)

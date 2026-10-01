@@ -35,6 +35,8 @@ pub(super) struct Task {
     pub style_loss: i32,
     pub last_mistake: Option<i32>,
     pub style_applied: bool,
+    root_nodes: Vec<u64>,
+    root_base: Option<(usize, u64)>,
     lmr_table: Vec<i16>,
     window: Option<Window>,
 }
@@ -56,6 +58,7 @@ impl Task {
         } else {
             allowed.to_vec()
         };
+        let root_count = root_moves.len();
         let best_move = root_moves.first().copied();
         let (status, score_cp) = match outcome {
             Outcome::Ongoing => (SearchStatus::Running, None),
@@ -91,6 +94,8 @@ impl Task {
             style_loss,
             last_mistake: None,
             style_applied: false,
+            root_nodes: vec![0; root_count],
+            root_base: None,
             lmr_table: Self::lmr_table_for(options.tuning()),
             window: None,
         })
@@ -139,6 +144,9 @@ impl Task {
                     let Stage::Waiting(pending) = frame.stage else {
                         return Err(EngineError::InternalState);
                     };
+                    if frame.ply == 0 {
+                        self.root_base = Some((pending.index, self.report.nodes));
+                    }
                     let child = self.child(&frame, &pending)?;
                     self.frames.push(frame);
                     self.frames.push(child);
@@ -158,6 +166,12 @@ impl Task {
                         let Stage::Waiting(pending) = parent.stage else {
                             return Err(EngineError::InternalState);
                         };
+                        if parent.ply == 0 {
+                            if let Some((index, base)) = self.root_base.take() {
+                                self.root_nodes[index] +=
+                                    self.report.nodes.saturating_sub(base);
+                            }
+                        }
                         parent.stage = Stage::Returned(pending, result);
                     } else {
                         self.finish_pass(result);

@@ -34,6 +34,8 @@ pub struct SearchReport {
     pub best_move: Option<Move>,
     pub score_cp: Option<i32>,
     pub variations: Vec<PrincipalVariation>,
+    /// Nodes spent on the best line's root move in the last completed iteration.
+    pub best_move_nodes: u64,
 }
 
 impl PrincipalVariation {

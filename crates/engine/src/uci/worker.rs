@@ -19,10 +19,15 @@ use std::{
 struct Active {
     started: Instant,
     deadline: Option<Instant>,
-    budget: Option<u64>,
+    hard: Option<Instant>,
+    original_opt: u64,
     state: PlayState,
     last_depth: u8,
     last_nodes: u64,
+    stability: u32,
+    prev_best: Option<gwaymaegyi_core::Move>,
+    score_hist: [i32; 3],
+    score_count: u8,
 }
 #[derive(Debug)]
 struct Worker {
@@ -131,11 +136,11 @@ impl Worker {
             Command::Stop => self.finish(),
             Command::PonderHit => {
                 if let Some(active) = self.active.as_mut() {
-                    if active.state == PlayState::Ponder {
+                    if active.state == PlayState::Ponder && active.original_opt > 0 {
                         active.state = PlayState::Normal;
-                        active.deadline = active.budget.and_then(|time| {
-                            Instant::now().checked_add(Duration::from_millis(time))
-                        });
+                        let now = Instant::now();
+                        active.deadline = now.checked_add(Duration::from_millis(active.original_opt));
+                        active.hard = active.deadline;
                     }
                 }
                 if !self.engine.searching() {
@@ -160,23 +165,31 @@ impl Worker {
         self.engine
             .start_moves(go.limits, &roots)
             .map_err(|error| error.to_string())?;
-        let budget = go.budget_ms(
+        let time = go.time_control(
             self.engine.game().board().side_to_move() as usize,
             self.options.overhead,
         );
         let started = Instant::now();
-        let deadline = if go.state == PlayState::Normal {
-            budget.and_then(|time| started.checked_add(Duration::from_millis(time)))
-        } else {
-            None
+        let (deadline, hard, original_opt) = match time {
+            Some((max, opt)) => (
+                started.checked_add(Duration::from_millis(opt)),
+                started.checked_add(Duration::from_millis(max)),
+                opt,
+            ),
+            None => (None, None, 0),
         };
         self.active = Some(Active {
             started,
             deadline,
-            budget,
+            hard,
+            original_opt,
             state: go.state,
             last_depth: 0,
             last_nodes: 0,
+            stability: 1,
+            prev_best: None,
+            score_hist: [0; 3],
+            score_count: 0,
         });
         if !self.engine.searching() && go.state == PlayState::Normal {
             self.finish();
@@ -193,13 +206,46 @@ impl Worker {
         };
         let elapsed = active.started.elapsed().as_millis();
         let publish = report.depth > active.last_depth;
-        active.last_depth = report.depth;
         if publish {
+            active.last_depth = report.depth;
             active.last_nodes = report.nodes;
+            if let Some(best) = report.best_move {
+                if active.prev_best == Some(best) {
+                    active.stability = active.stability.saturating_add(1);
+                } else {
+                    active.stability = 1;
+                }
+                active.prev_best = Some(best);
+            }
+            let score = report.variations.first().map_or(0, |line| line.score_cp);
+            let prev = if active.score_count > 0 {
+                let n = usize::from(active.score_count).clamp(1, 3);
+                active.score_hist[..n].iter().sum::<i32>() / i32::try_from(n).unwrap_or(1)
+            } else {
+                0
+            };
+            active.score_hist[usize::from(active.score_count) % 3] = score;
+            active.score_count = active.score_count.saturating_add(1);
+            if let Some(max_ms) = active.hard.and_then(|hard| {
+                hard.duration_since(active.started)
+                    .as_millis()
+                    .try_into()
+                    .ok()
+            }) {
+                active.deadline = Self::soft_deadline(
+                    active.started,
+                    active.original_opt,
+                    max_ms,
+                    report.best_move_nodes,
+                    report.nodes,
+                    active.stability,
+                    prev - score,
+                );
+            }
         }
-        let expired = active
-            .deadline
-            .is_some_and(|deadline| Instant::now() >= deadline);
+        let now = Instant::now();
+        let expired = active.deadline.is_some_and(|deadline| now >= deadline)
+            || active.hard.is_some_and(|hard| now >= hard);
         let normal = active.state == PlayState::Normal;
         if publish {
             for line in output::info(
@@ -221,6 +267,44 @@ impl Worker {
         }
         true
     }
+    /// Reference soft-limit adjustment: scale the original opt by the
+    /// best-move node share, best-move stability, and a smoothed score drop.
+    #[must_use]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "Node ratios need no precision beyond 53 bits; clamped downstream."
+    )]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "The value is clamped to max_ms, a u64, before conversion."
+    )]
+    #[expect(
+        clippy::cast_sign_loss,
+        reason = "The value is clamped to at least 1.0 before conversion."
+    )]
+    fn soft_deadline(
+        started: Instant,
+        original_opt: u64,
+        max_ms: u64,
+        best_move_nodes: u64,
+        nodes: u64,
+        stability: u32,
+        score_delta: i32,
+    ) -> Option<Instant> {
+        if original_opt == 0 {
+            return None;
+        }
+        let fract = best_move_nodes as f64 / nodes.max(1) as f64;
+        let factor = (1.49 - fract) * 1.77;
+        let bm_factor = f64::from(stability).mul_add(-0.06, 1.52);
+        let score_factor = (1.0 + f64::from(score_delta) / 540.0).clamp(0.90, 1.18);
+        let soft = (original_opt as f64 * factor)
+            .mul_add(bm_factor, 0.0)
+            .mul_add(score_factor, 0.0);
+        let soft = soft.clamp(1.0, max_ms as f64).round() as u64;
+        started.checked_add(Duration::from_millis(soft))
+    }
+
     fn finish(&mut self) {
         if let Some(active) = self.active.take() {
             self.engine.stop();
