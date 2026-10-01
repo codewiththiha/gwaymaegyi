@@ -108,15 +108,16 @@ impl Go {
     /// per-move time plus the increment.
     pub(super) fn time_control(&self, side: usize, overhead: u64) -> Option<(u64, u64)> {
         if let Some(time) = self.move_time {
-            let budget = time.saturating_sub(overhead).clamp(1, 86_400_000);
+            let budget = time.saturating_sub(overhead).max(1);
             return Some((budget, budget));
         }
         let time = self.remaining[side]?;
         let usable = time.saturating_sub(overhead);
-        let max = (usable.saturating_mul(8) / 10).clamp(1, 86_400_000);
-        let opt = ((usable / 20 + self.increments[side]).saturating_mul(6) / 10)
-            .max(1)
-            .min(max);
+        let max = (usable / 10 * 8 + usable % 10 * 8 / 10).max(1);
+        let per_move = u128::from(usable / 20) + u128::from(self.increments[side]);
+        let opt = (per_move * 6 / 10).max(1).min(u128::from(max));
+        // The cap precedes narrowing, including when time plus increment exceeds u64.
+        let opt = u64::try_from(opt).unwrap_or(max);
         Some((max, opt))
     }
 
@@ -140,4 +141,16 @@ mod tests {
         assert!(!movetime.adaptive_time());
         Ok(())
     }
+
+    #[test]
+    fn native_clock_budgets_have_no_one_day_ceiling() -> Result<(), String> {
+        let fixed = Go::parse(&["movetime", "18446744073709551615"])?;
+        assert_eq!(fixed.time_control(0, 0), Some((u64::MAX, u64::MAX)));
+        let clock = Go::parse(&["wtime", "18446744073709551615", "winc", "18446744073709551615"])?;
+        let (max, opt) = clock.time_control(0, 20).ok_or("missing large clock")?;
+        assert_eq!(max, 14_757_395_258_967_641_276);
+        assert!(opt > 86_400_000 && opt <= max);
+        Ok(())
+    }
+
 }

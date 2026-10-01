@@ -282,7 +282,7 @@ impl Engine {
         clippy::missing_const_for_fn,
         reason = "WASM exports cannot be const functions."
     )]
-    pub fn hash_mib(&self) -> u16 {
+    pub fn hash_mib(&self) -> u32 {
         self.inner.options().hash_mib()
     }
     #[must_use]

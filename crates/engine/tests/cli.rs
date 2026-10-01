@@ -143,3 +143,13 @@ fn datagen_and_parallel_analysis_produce_valid_outputs() -> Result<(), Box<dyn E
     assert!(report.nodes > 0);
     Ok(())
 }
+
+
+#[test]
+fn native_perft_depth_is_not_capped_at_eight() -> Result<(), Box<dyn Error>> {
+    let mate = "7k/6Q1/6K1/8/8/8/8/8 b - - 150 1";
+    assert_eq!(output(&["perft", "9", mate])?, "0 nodes\n");
+    assert_eq!(output(&["perft", "127", mate])?, "0 nodes\n");
+    assert!(output(&["bench", "128", "1"]).is_err());
+    Ok(())
+}

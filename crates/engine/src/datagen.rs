@@ -12,6 +12,7 @@ use std::{
     thread,
 };
 
+use crate::MAX_THREADS;
 use gwaymaegyi_core::{Board, Color, Game, MoveKind, Outcome, Promotion, START_FEN};
 use gwaymaegyi_search::{
     Engine, EngineError, GameResult, MAX_DEPTH, Mode, Options, SearchLimits, TrainingRecord,
@@ -19,11 +20,12 @@ use gwaymaegyi_search::{
 
 const MAX_GAME_BUFFER: usize = 5_000;
 
-/// Configuration for a bounded self-play data generation run.
+/// Configuration for a finite self-play data generation run.
 #[derive(Clone, Debug)]
 pub struct DatagenConfig {
     pub positions: usize,
-    pub threads: u8,
+    pub threads: u16,
+    pub hash_mib: u32,
     pub seed: u64,
     pub chess960: bool,
     pub opt_nodes: u64,
@@ -37,11 +39,12 @@ impl Default for DatagenConfig {
         Self {
             positions: 64,
             threads: 1,
+            hash_mib: Options::default().hash_mib(),
             seed: 19,
             chess960: false,
             opt_nodes: 5_000,
             max_nodes: 50_000,
-            max_depth: 10,
+            max_depth: MAX_DEPTH,
             openings: Vec::new(),
         }
     }
@@ -62,10 +65,10 @@ impl fmt::Display for DatagenError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidPositions => {
-                formatter.write_str("datagen position count must be 1 through 100000")
+                formatter.write_str("datagen position count must be positive")
             }
             Self::InvalidThreads => {
-                formatter.write_str("datagen thread count must be 1 through 16")
+                formatter.write_str("datagen thread count must be 1 through 1024")
             }
             Self::InvalidLimits => {
                 formatter.write_str("datagen node and depth limits must be positive and valid")
@@ -144,10 +147,10 @@ pub fn generate_training_data(
     config: &DatagenConfig,
     cancel: &AtomicBool,
 ) -> Result<Vec<TrainingRecord>, DatagenError> {
-    if !(1..=100_000).contains(&config.positions) {
+    if config.positions == 0 {
         return Err(DatagenError::InvalidPositions);
     }
-    if !(1..=16).contains(&config.threads) {
+    if !(1..=MAX_THREADS).contains(&config.threads) {
         return Err(DatagenError::InvalidThreads);
     }
     if config.opt_nodes == 0
@@ -163,56 +166,84 @@ pub fn generate_training_data(
             openings.push(fen);
         }
     }
+    let mut base = Options::default();
+    base.set_mode(Mode::Aggressive);
+    base.set_chess960(config.chess960);
+    base.set_hash_mib(config.hash_mib).map_err(DatagenError::Engine)?;
+    if cancel.load(Ordering::Relaxed) {
+        return Ok(Vec::new());
+    }
+    run_generation(config, &openings, base, cancel)
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Cancellation<'a> {
+    requested: &'a AtomicBool,
+    failed: &'a AtomicBool,
+}
+
+impl Cancellation<'_> {
+    fn requested(self) -> bool {
+        self.requested.load(Ordering::Relaxed) || self.failed.load(Ordering::Relaxed)
+    }
+}
+
+fn run_generation(
+    config: &DatagenConfig,
+    openings: &[String],
+    base: Options,
+    requested: &AtomicBool,
+) -> Result<Vec<TrainingRecord>, DatagenError> {
     let next_game = AtomicUsize::new(0);
     let total_saved = AtomicUsize::new(0);
+    let failed = AtomicBool::new(false);
+    let cancel = Cancellation { requested, failed: &failed };
     let worker_count = usize::from(config.threads).min(config.positions);
-
     thread::scope(|scope| {
         let mut handles = Vec::with_capacity(worker_count);
+        let mut failure = None;
         for _ in 0..worker_count {
-            let openings_ref = &openings;
             let next_game_ref = &next_game;
             let saved_ref = &total_saved;
-            handles.push(scope.spawn(move || {
-                let mut engine = Engine::new().map_err(DatagenError::Engine)?;
-                let mut base = Options::default();
-                base.set_mode(Mode::Aggressive);
-                base.set_chess960(config.chess960);
-                base.set_hash_mib(1).map_err(DatagenError::Engine)?;
-                engine.configure(base).map_err(DatagenError::Engine)?;
-                let mut local_batches = Vec::new();
-
-                while !cancel.load(Ordering::Relaxed)
-                    && saved_ref.load(Ordering::Relaxed) < config.positions
-                {
-                    let game_id = next_game_ref.fetch_add(1, Ordering::Relaxed);
-                    if game_id > config.positions.saturating_mul(64).max(256) {
-                        break;
+            let started = thread::Builder::new().spawn_scoped(scope, move || {
+                let result = (|| {
+                    let mut engine = Engine::with_options(base).map_err(DatagenError::Engine)?;
+                    let mut local_batches = Vec::new();
+                    while !cancel.requested() && saved_ref.load(Ordering::Relaxed) < config.positions {
+                        let game_id = next_game_ref.fetch_add(1, Ordering::Relaxed);
+                        if game_id > config.positions.saturating_mul(64).max(256) {
+                            break;
+                        }
+                        let records = play_single_game(&mut engine, config, openings, game_id, cancel)?;
+                        if !records.is_empty() {
+                            saved_ref.fetch_add(records.len(), Ordering::Relaxed);
+                            local_batches.push((game_id, records));
+                        }
                     }
-                    let records =
-                        play_single_game(&mut engine, config, openings_ref, game_id, cancel)?;
-                    if !records.is_empty() {
-                        saved_ref.fetch_add(records.len(), Ordering::Relaxed);
-                        local_batches.push((game_id, records));
-                    }
+                    Ok::<_, DatagenError>(local_batches)
+                })();
+                if result.is_err() {
+                    cancel.failed.store(true, Ordering::Relaxed);
                 }
-                Ok::<_, DatagenError>(local_batches)
-            }));
+                result
+            });
+            match started {
+                Ok(handle) => handles.push(handle),
+                Err(_) => {
+                    failed.store(true, Ordering::Relaxed);
+                    failure = Some(DatagenError::WorkerFailure);
+                    break;
+                }
+            }
         }
         let mut batches = Vec::new();
-        let mut failure = None;
         for handle in handles {
             match handle.join() {
                 Ok(Ok(worker_batches)) => batches.extend(worker_batches),
-                Ok(Err(error)) => {
-                    if failure.is_none() {
-                        failure = Some(error);
-                    }
-                }
+                Ok(Err(error)) => { failure.get_or_insert(error); }
                 Err(_) => {
-                    if failure.is_none() {
-                        failure = Some(DatagenError::WorkerFailure);
-                    }
+                    failed.store(true, Ordering::Relaxed);
+                    failure.get_or_insert(DatagenError::WorkerFailure);
                 }
             }
         }
@@ -220,13 +251,11 @@ pub fn generate_training_data(
             return Err(error);
         }
         batches.sort_by_key(|(game_id, _)| *game_id);
-        let mut out = Vec::with_capacity(config.positions);
+        let mut out = Vec::new();
+        out.try_reserve_exact(total_saved.load(Ordering::Relaxed).min(config.positions))
+            .map_err(|_| DatagenError::Engine(EngineError::Resources))?;
         for (_, batch) in batches {
-            for record in batch {
-                if out.len() < config.positions {
-                    out.push(record);
-                }
-            }
+            out.extend(batch.into_iter().take(config.positions - out.len()));
         }
         Ok(out)
     })
@@ -257,7 +286,7 @@ fn play_single_game(
     config: &DatagenConfig,
     openings: &[String],
     game_id: usize,
-    cancel: &AtomicBool,
+    cancel: Cancellation<'_>,
 ) -> Result<Vec<TrainingRecord>, DatagenError> {
     let game_seed = u64::try_from(game_id)
         .unwrap_or(0)
@@ -288,7 +317,7 @@ fn play_single_game(
     let mut samples: Vec<(Board, i16)> = Vec::new();
     let mut result = GameResult::Draw;
     for step in 0..320_usize {
-        if cancel.load(Ordering::Relaxed) {
+        if cancel.requested() {
             break;
         }
         match game.outcome() {
@@ -366,7 +395,7 @@ fn search_game_move(
     played_uci: &[String],
     config: &DatagenConfig,
     multi_pv: u8,
-    cancel: &AtomicBool,
+    cancel: Cancellation<'_>,
 ) -> Result<(i32, Option<gwaymaegyi_core::Move>), DatagenError> {
     let mut options = engine.options();
     options
@@ -384,7 +413,7 @@ fn search_game_move(
         })
         .map_err(DatagenError::Engine)?;
     while engine.searching() {
-        if cancel.load(Ordering::Relaxed) {
+        if cancel.requested() {
             engine.stop();
             break;
         }

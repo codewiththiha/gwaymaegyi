@@ -22,7 +22,29 @@ pub use report::{Completion, PrincipalVariation, SearchReport, SearchStatus};
 pub use strength::{SkillLevel, Strength};
 pub use tablebase::{TablebaseProbe, TablebaseRoot, TablebaseWdl};
 
+#[cfg(not(target_family = "wasm"))]
+pub const MAX_DEPTH: u8 = 127;
+#[cfg(target_family = "wasm")]
 pub const MAX_DEPTH: u8 = 64;
+
+#[cfg(not(target_family = "wasm"))]
+pub const MAX_HASH_MIB: u32 = 131_072;
+#[cfg(target_family = "wasm")]
+pub const MAX_HASH_MIB: u32 = 64;
+
+#[cfg(not(target_family = "wasm"))]
+pub const MAX_MULTI_PV: u8 = 255;
+#[cfg(target_family = "wasm")]
+pub const MAX_MULTI_PV: u8 = 32;
+
+#[cfg(not(target_family = "wasm"))]
+pub const MAX_WORK: u32 = u32::MAX;
+#[cfg(target_family = "wasm")]
+pub const MAX_WORK: u32 = 65_536;
+
+#[cfg(not(target_family = "wasm"))]
+const MAX_PLY: u8 = 128;
+#[cfg(target_family = "wasm")]
 const MAX_PLY: u8 = 96;
 const MATE: i32 = 30_000;
 const MATE_THRESHOLD: i32 = MATE - MAX_PLY as i32;

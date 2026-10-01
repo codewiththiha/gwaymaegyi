@@ -5,7 +5,9 @@
     reason = "Validation failures are documented in plain prose."
 )]
 
-use crate::{EngineError, MAX_DEPTH, SearchTuning, SkillLevel, Strength};
+use crate::{
+    EngineError, MAX_DEPTH, MAX_HASH_MIB, MAX_MULTI_PV, SearchTuning, SkillLevel, Strength,
+};
 use std::str::FromStr;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -48,7 +50,7 @@ impl FromStr for Mode {
 pub struct Options {
     mode: Mode,
     strength: Strength,
-    hash_mib: u16,
+    hash_mib: u32,
     multi_pv: u8,
     chess960: bool,
     seed: u64,
@@ -60,7 +62,7 @@ impl Default for Options {
         Self {
             mode: Mode::Balanced,
             strength: Strength::Full,
-            hash_mib: 8,
+            hash_mib: if cfg!(target_family = "wasm") { 8 } else { 32 },
             multi_pv: 1,
             chess960: false,
             seed: 19,
@@ -78,7 +80,7 @@ impl Options {
         self.strength
     }
     #[must_use]
-    pub const fn hash_mib(self) -> u16 {
+    pub const fn hash_mib(self) -> u32 {
         self.hash_mib
     }
     #[must_use]
@@ -130,8 +132,8 @@ impl Options {
         Ok(())
     }
     /// An invalid size leaves the existing value unchanged.
-    pub fn set_hash_mib(&mut self, size: u16) -> Result<(), EngineError> {
-        if !(1..=64).contains(&size) {
+    pub fn set_hash_mib(&mut self, size: u32) -> Result<(), EngineError> {
+        if !(1..=MAX_HASH_MIB).contains(&size) {
             return Err(EngineError::InvalidHash);
         }
         self.hash_mib = size;
@@ -139,7 +141,7 @@ impl Options {
     }
     /// An invalid count leaves the existing value unchanged.
     pub fn set_multi_pv(&mut self, count: u8) -> Result<(), EngineError> {
-        if !(1..=5).contains(&count) {
+        if !(1..=MAX_MULTI_PV).contains(&count) {
             return Err(EngineError::InvalidMultiPv);
         }
         self.multi_pv = count;
@@ -283,9 +285,13 @@ pub struct SearchLimits {
 }
 impl Default for SearchLimits {
     fn default() -> Self {
-        Self {
-            depth: 8,
-            nodes: 100_000,
+        if cfg!(target_family = "wasm") {
+            Self {
+                depth: 8,
+                nodes: 100_000,
+            }
+        } else {
+            Self::full()
         }
     }
 }

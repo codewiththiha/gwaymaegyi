@@ -52,6 +52,21 @@ struct Active {
     helper_nodes: Arc<AtomicU64>,
     helpers: Vec<JoinHandle<()>>,
 }
+impl Active {
+    fn stop_helpers(&mut self) {
+        self.helper_stop.store(true, Ordering::Relaxed);
+        for handle in self.helpers.drain(..) {
+            let _ = handle.join();
+        }
+    }
+}
+
+impl Drop for Active {
+    fn drop(&mut self) {
+        self.stop_helpers();
+    }
+}
+
 #[derive(Debug)]
 struct Worker {
     engine: Engine,
@@ -120,12 +135,12 @@ impl Worker {
                 if let Err(error) = result {
                     return self.rejected(&error.to_string());
                 }
+                self.active = None;
                 if let Some(shared) = &self.shared_table {
                     shared.clear();
                 }
                 gwaymaegyi_core::START_FEN.clone_into(&mut self.last_fen);
                 self.last_moves.clear();
-                self.active = None;
             }
             Command::Option { name, value } => {
                 if name.eq_ignore_ascii_case("SyzygyPath") {
@@ -295,19 +310,29 @@ impl Worker {
         let started = Instant::now();
         let helper_stop = Arc::new(AtomicBool::new(false));
         let helper_nodes = Arc::new(AtomicU64::new(0));
-        let helpers = if self.options.threads > 1 {
-            let shared = self.ensure_shared_table()?;
-            shared.next_search();
-            self.engine.set_shared_table(Some(Arc::clone(&shared)));
-            self.spawn_helpers(go, &shared, &helper_stop, &helper_nodes)?
+        let shared = if self.options.threads > 1 {
+            let table = self.ensure_shared_table()?;
+            table.next_search();
+            Some(table)
         } else {
-            self.engine.set_shared_table(None);
-            Vec::new()
+            None
         };
+        self.engine.set_shared_table(shared.clone());
         let roots: Vec<_> = go.roots.iter().map(String::as_str).collect();
         self.engine
             .start_moves(go.limits, &roots)
             .map_err(|error| error.to_string())?;
+        let helpers = if let Some(table) = shared.filter(|_| self.engine.searching()) {
+            match self.spawn_helpers(go, &table, &helper_stop, &helper_nodes) {
+                Ok(handles) => handles,
+                Err(error) => {
+                    self.engine.stop();
+                    return Err(error);
+                }
+            }
+        } else {
+            Vec::new()
+        };
         let time = if go.state == PlayState::Infinite {
             None
         } else {
@@ -380,45 +405,50 @@ impl Worker {
         base_options
             .set_hash_mib(1)
             .map_err(|error| error.to_string())?;
-        for worker_id in 1..self.options.threads {
-            let shared_ref = Arc::clone(shared);
-            let stop_ref = Arc::clone(stop);
-            let nodes_ref = Arc::clone(nodes);
-            let fen = self.last_fen.clone();
-            let moves = self.last_moves.clone();
-            let roots = go.roots.clone();
-            let limits = go.limits;
-            let tb = self
-                .tablebases
-                .as_ref()
-                .map(|probe| Arc::clone(probe) as Arc<dyn TablebaseProbe>);
-            handles.push(thread::spawn(move || {
-                let Ok(mut helper) = Engine::new() else {
-                    return;
-                };
+        let moves: Vec<_> = self.last_moves.iter().map(String::as_str).collect();
+        let roots: Vec<_> = go.roots.iter().map(String::as_str).collect();
+        let result = (|| {
+            for worker_id in 1..self.options.threads {
+                let mut helper = Engine::with_options(base_options)
+                    .map_err(|error| error.to_string())?;
                 helper.set_worker_id(worker_id);
-                helper.set_tablebase(tb);
-                if helper.configure(base_options).is_err() {
-                    return;
-                }
-                helper.set_shared_table(Some(shared_ref));
-                let move_refs: Vec<_> = moves.iter().map(String::as_str).collect();
-                let root_refs: Vec<_> = roots.iter().map(String::as_str).collect();
-                if helper.set_position(&fen, &move_refs).is_err()
-                    || helper.start_moves(limits, &root_refs).is_err()
-                {
-                    return;
-                }
-                let mut prev_nodes = 0_u64;
-                while helper.searching() && !stop_ref.load(Ordering::Relaxed) {
-                    let Ok(rep) = helper.step(256) else {
-                        break;
-                    };
-                    let delta = rep.nodes.saturating_sub(prev_nodes);
-                    prev_nodes = rep.nodes;
-                    nodes_ref.fetch_add(delta, Ordering::Relaxed);
-                }
-            }));
+                helper.set_tablebase(
+                    self.tablebases
+                        .as_ref()
+                        .map(|probe| Arc::clone(probe) as Arc<dyn TablebaseProbe>),
+                );
+                helper.set_shared_table(Some(Arc::clone(shared)));
+                helper
+                    .set_position(&self.last_fen, &moves)
+                    .map_err(|error| error.to_string())?;
+                helper
+                    .start_moves(go.limits, &roots)
+                    .map_err(|error| error.to_string())?;
+                let stop_ref = Arc::clone(stop);
+                let nodes_ref = Arc::clone(nodes);
+                let handle = thread::Builder::new()
+                    .spawn(move || {
+                        let mut prev_nodes = 0_u64;
+                        while helper.searching() && !stop_ref.load(Ordering::Relaxed) {
+                            let Ok(rep) = helper.step(256) else {
+                                break;
+                            };
+                            let delta = rep.nodes.saturating_sub(prev_nodes);
+                            prev_nodes = rep.nodes;
+                            nodes_ref.fetch_add(delta, Ordering::Relaxed);
+                        }
+                    })
+                    .map_err(|error| format!("could not start search helper: {error}"))?;
+                handles.push(handle);
+            }
+            Ok::<_, String>(())
+        })();
+        if let Err(error) = result {
+            stop.store(true, Ordering::Relaxed);
+            for handle in handles {
+                let _ = handle.join();
+            }
+            return Err(error);
         }
         Ok(handles)
     }
@@ -516,12 +546,9 @@ impl Worker {
     }
 
     fn finish(&mut self) {
-        if let Some(active) = self.active.take() {
-            active.helper_stop.store(true, Ordering::Relaxed);
+        if let Some(mut active) = self.active.take() {
             self.engine.stop();
-            for handle in active.helpers {
-                let _ = handle.join();
-            }
+            active.stop_helpers();
             let mut report = self.engine.report();
             report.nodes = report
                 .nodes

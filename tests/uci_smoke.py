@@ -53,6 +53,32 @@ def main(executable):
         assert any("uncalibrated" in line for line in identification)
         assert any("UCI_Chess960" in line for line in identification)
         assert any("Skill_Level type spin default 21 min 1 max 21" in line for line in identification)
+        for option in (
+            "Hash type spin default 32 min 1 max 131072",
+            "Threads type spin default 1 min 1 max 1024",
+            "MultiPV type spin default 1 min 1 max 255",
+        ):
+            assert any(option in line for line in identification), option
+        engine.send("setoption name Hash value 65")
+        engine.send("setoption name MultiPV value 255")
+        engine.send("setoption name Threads value 1024")
+        engine.send("isready")
+        maxima = engine.until("readyok")
+        assert not any("rejected:" in line for line in maxima), maxima
+        engine.send("setoption name Threads value 1025")
+        engine.until("info string rejected:")
+        engine.send("setoption name Threads value 1")
+        engine.send("position startpos")
+        engine.send("go depth 1")
+        lines = engine.until("bestmove ")
+        assert any("multipv 20 " in line for line in lines), lines
+        engine.send("setoption name MultiPV value 1")
+        engine.send("setoption name Hash value 32")
+        engine.send("position fen 7k/8/6KQ/8/8/8/8/8 w - - 0 1")
+        engine.send("go depth 127 searchmoves h6g7")
+        deepest = engine.until("bestmove ")
+        assert any("info depth 127 " in line for line in deepest), deepest
+        assert deepest[-1] == "bestmove h6g7", deepest
         engine.send("isready")
         engine.until("readyok")
         engine.send("setoption name SyzygyPath value /definitely/not/a/tablebase")
@@ -71,6 +97,7 @@ def main(executable):
         assert any("info depth 3 " in line for line in normal), normal
         assert normal[-1] != "bestmove 0000"
 
+        engine.send("setoption name Threads value 2")
         engine.send("position startpos")
         engine.send("go infinite")
         engine.send("isready")
@@ -78,6 +105,7 @@ def main(executable):
         engine.send("stop")
         stopped = engine.until("bestmove ", timeout=5)
         assert stopped[-1] != "bestmove 0000"
+        engine.send("setoption name Threads value 1")
 
         engine.send("position startpos")
         engine.send("go ponder wtime 2000 btime 2000")
@@ -123,7 +151,7 @@ def main(executable):
         engine.send("go depth 3")
         hint = engine.until("bestmove ")[-1]
         assert " ponder " in hint, hint
-        print("Native UCI smoke: handshake, search, stop, ready, ponder, roots, mate, presets, Chess960 passed")
+        print("Native UCI smoke: native maxima, MultiPV, depth 127, SMP stop, clocks, presets, Chess960 passed")
     finally:
         engine.close()
 

@@ -31,7 +31,9 @@ not a claim of optimized engine throughput.
 The evaluation crate owns immutable weights and per-worker accumulators. Its model
 bytes are borrowed, decoded safely, and never duplicated into a heap-sized weight
 table. Search owns history, its typed continuation stack, transposition access,
-and validated limits. Evaluation context is part of cache identity. The
+and target-appropriate validated limits. Native builds expose full resource
+ranges; WASM builds retain browser ceilings. See [resource ranges](resources.md).
+Evaluation context is part of cache identity. The
 rules core must not prefetch or access search state.
 
 Native orchestration owns timing and workers; browser orchestration uses

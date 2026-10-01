@@ -56,12 +56,17 @@ always take the best line.
 
 ## Native CPU parallelism
 
-`gwaymaegyi::analyze_batch` runs independent AnalysisRequest values using 1–16
+`gwaymaegyi::analyze_batch` runs independent AnalysisRequest values using 1–1,024
 scoped native workers. Each request gets fresh owned search resources; output order
 matches input order regardless of worker count. A caller-owned AtomicBool provides
-cooperative cancellation between slices. Combined hash budgets are bounded.
+cooperative cancellation between slices. There is no separate 256 MiB aggregate
+hash ceiling; callers choose resources that fit their hardware.
 All supplied positions, moves, roots, and limits are checked before starting work.
-This is batch concurrency, not yet single-position SMP or a shared mutable cache.
+
+`analyze_parallel` searches one position with up to 1,024 workers and the requested
+lock-striped `SharedTable`. UCI exposes this via `Threads`. Worker-local caches and
+history supplement the shared hash. Thread startup is fallible; failed startup
+stops and joins already-started work. See [resource ranges](resources.md).
 
 No Tokio dependency is required for this CPU-only API. An application with async
 network I/O can own its own runtime and bridge to these bounded workers. Do not

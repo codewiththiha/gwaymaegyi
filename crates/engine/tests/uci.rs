@@ -38,7 +38,7 @@ fn bench_and_printparams_emit_deterministic_protocol_lines() -> Result<(), Box<d
     let mut output = Vec::new();
     run_uci(Cursor::new(cmd.to_vec()), &mut output)?;
     let text = String::from_utf8(output)?;
-    assert!(text.contains("option name Threads type spin default 1 min 1 max 16\n"));
+    assert!(text.contains("option name Threads type spin default 1 min 1 max 1024\n"));
     assert!(text.contains("bestmove "));
     assert!(text.contains("AspStartWindow, int, 20, 10, 100, 4, 0.002\n"));
     assert!(text.contains("info string bench positions 2 depth 1 nodes "));

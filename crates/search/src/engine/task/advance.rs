@@ -292,8 +292,7 @@ impl Task {
     }
 
     fn lmr_depth(&self, frame: &Frame, index: usize) -> i32 {
-        let depth = usize::try_from(frame.depth.max(1)).unwrap_or(64).min(64);
-        (i32::from(frame.depth.max(1)) - i32::from(self.lmr_table[depth * 65 + index.min(64)]))
+        (i32::from(frame.depth.max(1)) - i32::from(self.lmr_reduction(frame.depth.max(1), index)))
             .max(1)
     }
 
@@ -484,8 +483,7 @@ impl Task {
         {
             return (Probe::Scout, newdepth, [-frame.alpha - 1, -frame.alpha]);
         }
-        let mut r =
-            self.lmr_table[usize::try_from(frame.depth).unwrap_or(64).min(64) * 65 + index.min(64)];
+        let mut r = self.lmr_reduction(frame.depth, index);
         if item.is_capture {
             r /= 2;
         } else {

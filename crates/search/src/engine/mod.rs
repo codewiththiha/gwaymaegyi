@@ -31,13 +31,17 @@ pub struct Engine {
     task: Option<Task>,
     style_loss: i32,
     tablebase: Option<Arc<dyn TablebaseProbe>>,
-    worker_id: u8,
+    worker_id: u16,
 }
 
 impl Engine {
     /// Reports an allocation failure or an invalid built-in initial position.
     pub fn new() -> Result<Self, EngineError> {
-        let options = Options::default();
+        Self::with_options(Options::default())
+    }
+
+    /// Allocates only the requested cache, without a temporary default-sized cache.
+    pub fn with_options(options: Options) -> Result<Self, EngineError> {
         Ok(Self {
             game: Game::start().map_err(|error| EngineError::InvalidPosition(error.to_string()))?,
             options,
@@ -99,8 +103,8 @@ impl Engine {
         self.cache.set_shared(shared);
     }
 
-    /// Sets the worker identifier (`0` for primary, `1..=15` for helper diversification).
-    pub const fn set_worker_id(&mut self, worker_id: u8) {
+    /// Sets the worker identifier (`0` for primary, `1..=1023` for helper diversification).
+    pub const fn set_worker_id(&mut self, worker_id: u16) {
         self.worker_id = worker_id;
     }
 
@@ -230,7 +234,7 @@ impl Engine {
 
     /// A work unit advances one state transition; the continuation is retained exactly.
     pub fn step(&mut self, work: u32) -> Result<SearchReport, EngineError> {
-        if !(1..=65_536).contains(&work) {
+        if !(1..=crate::MAX_WORK).contains(&work) {
             return Err(EngineError::InvalidSlice);
         }
         if let Some(task) = self.task.as_mut() {

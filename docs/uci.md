@@ -14,7 +14,8 @@ position startpos moves e2e4 e7e5
 go wtime 60000 btime 60000 winc 1000 binc 1000
 ```
 
-Options: Hash (1–64 MiB), Threads (1–16), MultiPV (1–5), Mode, UCI_Chess960,
+Options: Hash (1–131,072 MiB, default 32), Threads (1–1,024), MultiPV (1–255),
+Mode, UCI_Chess960,
 UCI_LimitStrength, UCI_Elo (500–3000), Skill_Level (1–21), SyzygyPath (native
 local tablebase files), Seed (unsigned 64-bit decimal), Move Overhead (0–5000 ms),
 and Ponder. Setting `Threads` above 1 attaches a lock-striped `SharedTable` and
@@ -27,8 +28,8 @@ ignores the configured strength cap.
 
 `go` supports depth, nodes, mate, clocks/increments, movetime, movestogo,
 searchmoves, infinite, and ponder. Clock arithmetic saturates safely; absent
-clocks create no artificial deadline. Extremely large budgets are capped at
-24 hours. Infinite/ponder searches withhold `bestmove` until stop/ponderhit;
+clocks create no artificial deadline. Native clock budgets have no arbitrary
+24-hour ceiling; checked arithmetic supports unsigned 64-bit milliseconds. Infinite/ponder searches withhold `bestmove` until stop/ponderhit;
 ponder clocks start on `ponderhit`. Enabling Ponder adds a legal predicted reply
 when the selected PV has one.
 Invalid commands/positions/options emit a protocol-safe diagnostic and leave
@@ -36,7 +37,9 @@ valid game/search state intact. Position/option updates cancel stale analysis.
 
 Use Chess960 rook-origin notation with `UCI_Chess960=true`. Terminal games
 return `bestmove 0000`; stopping early returns completed analysis or a legal
-root fallback. EOF cancels active work and returns that fallback before exit.
+root fallback. Native search depth supports 1–127; MultiPV emits at most the
+number of permitted legal root moves. Choose memory/threads that fit the host;
+see [resource ranges](resources.md). EOF cancels active work and returns that fallback before exit.
 Input lines are capped at 16 KiB. These safeguards are not a literal guarantee
 that software or its host cannot fail.
 

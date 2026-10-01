@@ -59,6 +59,14 @@ parameters. `limits_json()` reports requested/effective depth-node caps. Approxi
 strength may lower effective caps; a full compute profile does not override the
 selected strength policy.
 
+## Native resource ranges
+
+Native Rust and UCI expose Hash through 131,072 MiB, MultiPV through 255, Threads
+through 1,024, and depth 127. Native default search budgets request full depth/nodes;
+there is no 256 MiB combined parallel hash ceiling. Defaults allocate only 32 MiB
+hash and use one PV/thread. Maximum ranges require suitable host memory and CPU
+resources; see [resource ranges](resources.md). Browser limits do not apply to native.
+
 ## Full and adjustable WASM compute
 
 The default worker compute profile is `full`: depth 64, maximum unsigned 64-bit

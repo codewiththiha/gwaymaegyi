@@ -11,6 +11,11 @@ mod window;
 
 use window::Window;
 
+#[cfg(not(target_family = "wasm"))]
+const LMR_MOVE_COUNT: u16 = 256;
+#[cfg(target_family = "wasm")]
+const LMR_MOVE_COUNT: u16 = 65;
+
 use crate::{
     Completion, EngineError, Options, Parameter, PrincipalVariation, SearchLimits, SearchReport,
     SearchStatus,
@@ -37,7 +42,7 @@ pub(super) struct Task {
     pub style_applied: bool,
     pub tablebase: Option<std::sync::Arc<dyn crate::TablebaseProbe>>,
     pub active_model: gwaymaegyi_eval::Model,
-    pub worker_id: u8,
+    pub worker_id: u16,
     root_nodes: Vec<u64>,
     root_base: Option<(usize, u64)>,
     lmr_table: Vec<i16>,
@@ -120,23 +125,26 @@ impl Task {
 
     #[expect(
         clippy::cast_possible_truncation,
-        reason = "Values are bounded by log(64) squared times the scale, far below i16 range."
-    )]
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "Indices never exceed 64, which fits exactly in f64."
+        reason = "Logarithms of bounded depth and move indices keep every value within i16 range."
     )]
     fn lmr_table_for(tuning: crate::SearchTuning) -> Vec<i16> {
-        let mut table = vec![0i16; 65 * 65];
+        let columns = usize::from(LMR_MOVE_COUNT);
+        let mut table = vec![0i16; (usize::from(crate::MAX_DEPTH) + 1) * columns];
         let base = f64::from(tuning.get(Parameter::LmrBase)) / 10.0;
         let scale = 10.0 / f64::from(tuning.get(Parameter::LmrRatio));
-        for depth in 1..=64usize {
-            for move_ in 1..=64usize {
-                let value = ((depth as f64).ln() * (move_ as f64).ln()).mul_add(scale, base);
-                table[depth * 65 + move_] = value as i16;
+        for depth in 1..=crate::MAX_DEPTH {
+            for move_ in 1..LMR_MOVE_COUNT {
+                let value = (f64::from(depth).ln() * f64::from(move_).ln()).mul_add(scale, base);
+                table[usize::from(depth) * columns + usize::from(move_)] = value as i16;
             }
         }
         table
+    }
+
+    fn lmr_reduction(&self, depth: i16, index: usize) -> i16 {
+        let row = usize::try_from(depth).unwrap_or(0).min(usize::from(crate::MAX_DEPTH));
+        let columns = usize::from(LMR_MOVE_COUNT);
+        self.lmr_table[row * columns + index.min(columns - 1)]
     }
 
     pub(super) fn step(&mut self, cache: &mut Cache, work: u32) -> Result<(), EngineError> {
@@ -482,4 +490,16 @@ mod tests {
         assert_eq!(task.active_model, gwaymaegyi_eval::Model::Aggressive);
         Ok(())
     }
+
+    #[cfg(not(target_family = "wasm"))]
+    #[test]
+    fn native_reductions_cover_the_full_depth_and_move_ranges() -> Result<(), Box<dyn Error>> {
+        let game = Game::start()?;
+        let task = Task::new(&game, Options::default(), SearchLimits::full(), &[], 0, None)?;
+        assert_eq!(task.lmr_table.len(), 128 * 256);
+        assert!(task.lmr_reduction(127, 255) > task.lmr_reduction(64, 64));
+        assert_eq!(task.lmr_reduction(200, 400), task.lmr_reduction(127, 255));
+        Ok(())
+    }
+
 }

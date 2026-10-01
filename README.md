@@ -15,7 +15,7 @@ default rustfmt, and strict compiler/Clippy checks apply throughout.
 - **Resumable search slices**: progress survives yields; stop/reset does not restart
   an interrupted recursive search. Native and browser adapters use the same engine.
 - Validated per-engine search behaviors/parameters and resumable aspiration retries.
-- Native independent-request parallel analysis with bounded worker/hash resources.
+- Native batch analysis and single-position SMP with configurable shared hash/threads.
 - Optional native-only Syzygy WDL probing and single-PV root DTZ move selection;
   `info tbhits` reports successful probes. Portable/WASM builds remain filesystem-
   and native-FFI-free. Users supply `.rtbw` WDL files; matching `.rtbz` files also
@@ -34,10 +34,17 @@ cap. Neither a measured playing rating nor literal error-free software is claime
 See [control endpoints and skill presets](docs/controls.md) for the complete
 Rust/UCI/WASM access matrix and live compute controls.
 
-The working engine and interfaces are not a claim of complete feature, search,
-or measured strength parity with another engine. Each position currently uses
-single-worker search; independent native batch requests can run in parallel.
-Single-position SMP and controlled strength calibration remain future work; see the
+Native Rust/UCI supports **Hash up to 131,072 MiB (128 GiB), MultiPV up to 255,
+Threads up to 1,024, and depth 127**, with no separate 256 MiB parallel hash cap.
+Defaults remain practical: 32 MiB hash, one PV, one thread, and full strength.
+WASM retains browser limits: 64 MiB hash, 32 PVs, and depth 64. See
+[resource ranges](docs/resources.md) for defaults, allocation requirements, and
+native/browser differences. MultiPV cannot exceed the available legal root moves.
+
+Single-position SMP, self-play `datagen`, 32-byte training-record `convert`, eleven
+position `filter` tools, and the 50-position `bench` suite are implemented.
+These capabilities and limits are not a claim of measured strength parity with
+another engine. Controlled strength calibration remains future work; see the
 [roadmap](docs/roadmap.md) and [verification evidence](docs/verification.md).
 
 ## Native UCI and command line

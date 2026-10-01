@@ -52,7 +52,7 @@ export function configure(engine, options) {
   const args = [text(options.mode ?? engine.mode, 16, 'mode'),
     integer(options.skillLevel ?? options.elo ?? engine.elo, 0, 3000, 'strength'),
     integer(options.hashMiB ?? engine.hash_mib, 1, 64, 'hashMiB'),
-    integer(options.multiPv ?? engine.multi_pv, 1, 5, 'multiPv'), chess960,
+    integer(options.multiPv ?? engine.multi_pv, 1, 32, 'multiPv'), chess960,
     decimal(options.seed ?? engine.seed)];
   if (Object.hasOwn(options, 'skillLevel')) engine.configure_skill(...args);
   else engine.configure(...args);

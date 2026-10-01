@@ -52,7 +52,7 @@ impl Task {
         history: &History,
         successors: Vec<Successor>,
         priors: crate::engine::history::PriorMoves,
-        worker_id: u8,
+        worker_id: u16,
     ) {
         let tt = frame.tt_move;
         let mut scored = Vec::with_capacity(successors.len());

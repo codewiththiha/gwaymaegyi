@@ -9,7 +9,7 @@ use std::{error::Error, fs, io::Write, time::Instant};
 
 use gwaymaegyi_core::{Board, START_FEN, divide};
 use gwaymaegyi_search::{
-    BENCH_POSITIONS, FilterKind, Options, decode_bullet_records, encode_bullet_records,
+    BENCH_POSITIONS, FilterKind, MAX_DEPTH, Options, decode_bullet_records, encode_bullet_records,
     filter_lines, run_benchmark,
 };
 
@@ -41,8 +41,8 @@ pub fn run(
         "bench" => run_bench(args, output)?,
         "perft" => {
             let depth: u8 = args.next().ok_or("perft requires a depth")?.parse()?;
-            if depth > 8 {
-                return Err("perft depth must be between zero and eight".into());
+            if depth > MAX_DEPTH {
+                return Err("perft depth exceeds maximum search depth".into());
             }
             let board = parse_board(args, false)?;
             let counts = divide(&board, depth);
@@ -82,8 +82,8 @@ fn run_bench(
         Some(raw) => raw.parse()?,
         None => 4,
     };
-    if !(1..=12).contains(&depth) {
-        return Err("bench depth must be between 1 and 12".into());
+    if !(1..=MAX_DEPTH).contains(&depth) {
+        return Err("bench depth is outside supported bounds".into());
     }
     let count: usize = match args.next() {
         Some(raw) => raw.parse()?,
@@ -117,7 +117,7 @@ fn run_datagen(
         .next()
         .ok_or("datagen requires a position count")?
         .parse()?;
-    let threads: u8 = match args.next() {
+    let threads: u16 = match args.next() {
         Some(raw) => raw.parse()?,
         None => 1,
     };

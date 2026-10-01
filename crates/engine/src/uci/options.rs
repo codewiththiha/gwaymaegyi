@@ -1,12 +1,13 @@
 //! UCI option validation and protocol discovery, committed atomically to the engine.
 
+use crate::MAX_THREADS;
 use gwaymaegyi_search::{Behavior, Engine, Parameter, SkillLevel};
 
 #[derive(Debug)]
 pub(super) struct ProtocolOptions {
     pub overhead: u64,
     pub ponder: bool,
-    pub threads: u8,
+    pub threads: u16,
     elo: u16,
     limited: bool,
 }
@@ -40,8 +41,8 @@ impl ProtocolOptions {
                 .map_err(|error| error.to_string())?,
             "threads" => {
                 threads = value.parse().map_err(|_| "invalid thread count")?;
-                if !(1..=16).contains(&threads) {
-                    return Err("threads must be 1 through 16".into());
+                if !(1..=MAX_THREADS).contains(&threads) {
+                    return Err("threads must be 1 through 1024".into());
                 }
             }
             "multipv" => options
@@ -117,10 +118,10 @@ pub(super) const IDENTIFICATION: &str = concat!(
     "id name gwaymaegyi ",
     env!("CARGO_PKG_VERSION"),
     "\nid author codewiththiha\n\
-option name Hash type spin default 8 min 1 max 64\n\
-option name Threads type spin default 1 min 1 max 16\n\
+option name Hash type spin default 32 min 1 max 131072\n\
+option name Threads type spin default 1 min 1 max 1024\n\
 option name SyzygyPath type string default\n\
-option name MultiPV type spin default 1 min 1 max 5\n\
+option name MultiPV type spin default 1 min 1 max 255\n\
 option name Mode type combo default balanced var balanced var aggressive var human-like var analysis\n\
 option name UCI_Chess960 type check default false\n\
 option name UCI_LimitStrength type check default false\n\
@@ -134,8 +135,8 @@ info string Elo targets are uncalibrated resource and error-tolerance presets\nu
 
 #[cfg(test)]
 mod tests {
-    use super::ProtocolOptions;
-    use gwaymaegyi_search::{Engine, Strength};
+    use super::{IDENTIFICATION, ProtocolOptions};
+    use gwaymaegyi_search::{Engine, Options, Strength};
     use std::error::Error;
     #[test]
     fn skill_options_commit_the_mapped_strength() -> Result<(), Box<dyn Error>> {
@@ -149,4 +150,30 @@ mod tests {
         assert_eq!(engine.options().strength(), Strength::Full);
         Ok(())
     }
+
+    #[test]
+    fn native_protocol_accepts_maxima_and_rejects_overflow_atomically()
+    -> Result<(), Box<dyn Error>> {
+        let mut base = Options::default();
+        base.set_hash_mib(1)?;
+        let mut engine = Engine::with_options(base)?;
+        let mut protocol = ProtocolOptions::default();
+        protocol.set(&mut engine, "Threads", "1024")?;
+        protocol.set(&mut engine, "MultiPV", "255")?;
+        protocol.set(&mut engine, "Move Overhead", "5000")?;
+        assert_eq!(protocol.threads, 1024);
+        assert_eq!(protocol.overhead, 5000);
+        assert_eq!(engine.options().multi_pv(), 255);
+        assert_eq!(engine.options().strength(), Strength::Full);
+        let before = engine.options();
+        for (name, value) in [("Threads", "1025"), ("MultiPV", "256"), ("Hash", "131073")] {
+            assert!(protocol.set(&mut engine, name, value).is_err());
+            assert_eq!(engine.options(), before);
+            assert_eq!(protocol.threads, 1024);
+        }
+        assert!(IDENTIFICATION.contains("Hash type spin default 32 min 1 max 131072"));
+        assert!(IDENTIFICATION.contains("MultiPV type spin default 1 min 1 max 255"));
+        Ok(())
+    }
+
 }

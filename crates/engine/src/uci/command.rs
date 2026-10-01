@@ -57,8 +57,8 @@ impl Command {
                 .map_err(|_| "bench depth must be an integer".to_owned())?,
             None => 4,
         };
-        if !(1..=12).contains(&depth) {
-            return Err("bench depth must be between 1 and 12".into());
+        if !(1..=gwaymaegyi_search::MAX_DEPTH).contains(&depth) {
+            return Err("bench depth is outside supported bounds".into());
         }
         let count = match fields.get(1) {
             Some(raw) => raw
@@ -122,10 +122,19 @@ mod tests {
             matches!(Command::parse("go depth 10"),Command::Go(go) if go.limits.depth==10 && go.time_control(0,20).is_none())
         );
         assert!(
-            matches!(Command::parse("go wtime 18446744073709551615"),Command::Go(go) if go.time_control(0,20).is_some_and(|(max,_)|max<=86_400_000))
+            matches!(Command::parse("go wtime 18446744073709551615"),Command::Go(go) if go.time_control(0,20).is_some_and(|(max,opt)|max>86_400_000 && opt<=max))
         );
         assert!(
             matches!(Command::parse("go infinite"),Command::Go(go) if go.limits.depth==MAX_DEPTH)
         );
     }
+
+    #[test]
+    fn diagnostics_and_search_accept_the_maximum_native_depth() {
+        assert!(matches!(Command::parse("bench 127 1"), Command::Bench { depth: 127, count: 1 }));
+        assert!(matches!(Command::parse("bench 128 1"), Command::Invalid(_)));
+        assert!(matches!(Command::parse("go depth 127"), Command::Go(go) if go.limits.depth == 127));
+        assert!(matches!(Command::parse("go depth 128"), Command::Invalid(_)));
+    }
+
 }

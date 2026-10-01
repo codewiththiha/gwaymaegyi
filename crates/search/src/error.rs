@@ -31,10 +31,22 @@ impl fmt::Display for EngineError {
             Self::InvalidElo => "Elo must be zero for full strength or between 500 and 3000",
             Self::InvalidSkill => "skill level must be 1 through 21; 21 selects full strength",
             Self::NoActiveSearch => "a running search is required to update limits",
-            Self::InvalidHash => "hash size must be between 1 and 64 MiB",
-            Self::InvalidMultiPv => "MultiPV must be between 1 and 5",
-            Self::InvalidLimits => "depth must be 1 through 64 and the node limit must be positive",
-            Self::InvalidSlice => "slice budget must be between 1 and 65536 work units",
+            Self::InvalidHash => {
+                return write!(out, "hash size must be between 1 and {} MiB", crate::MAX_HASH_MIB);
+            }
+            Self::InvalidMultiPv => {
+                return write!(out, "MultiPV must be between 1 and {}", crate::MAX_MULTI_PV);
+            }
+            Self::InvalidLimits => {
+                return write!(
+                    out,
+                    "depth must be 1 through {} and the node limit must be positive",
+                    crate::MAX_DEPTH
+                );
+            }
+            Self::InvalidSlice => {
+                return write!(out, "slice budget must be between 1 and {} work units", crate::MAX_WORK);
+            }
             Self::InvalidPosition(reason) | Self::InvalidMove(reason) => reason,
             Self::Resources => "engine memory allocation failed",
             Self::InternalState => "invalid internal search transition",

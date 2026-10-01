@@ -89,6 +89,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     for (index, case) in CASES.iter().enumerate() {
         let mut engine = Engine::new()?;
         let mut options = engine.options();
+        options.set_hash_mib(8)?;
         options.set_mode(case.mode);
         options.set_elo(case.elo)?;
         options.set_chess960(case.chess960);

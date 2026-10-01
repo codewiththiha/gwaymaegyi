@@ -11,6 +11,11 @@ worker scripts, and license notices. Host browser files normally as static asset
 The engine is not an HTTP server. `loader.mjs` can feature-detect SIMD128 and select
 between supplied portable/SIMD worker URLs.
 
+Browser-specific ceilings remain **64 MiB hash, 32 MultiPV lines, depth 64, and
+65,536 work units per synchronous slice**. Both direct bindings and the worker
+reject native-only larger settings atomically. These are WASM limits, not limits
+on the native Rust/UCI engine; see [resource ranges](resources.md).
+
 ## Preferred worker interface
 
 ```js

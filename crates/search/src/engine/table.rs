@@ -64,13 +64,21 @@ pub struct SharedTable {
     age: AtomicU8,
 }
 
+fn entry_capacity(mib: u32) -> Result<usize, EngineError> {
+    if !(1..=crate::MAX_HASH_MIB).contains(&mib) {
+        return Err(EngineError::InvalidHash);
+    }
+    let bytes = usize::try_from(mib)
+        .map_err(|_| EngineError::Resources)?
+        .checked_mul(1024 * 1024)
+        .ok_or(EngineError::Resources)?;
+    Ok(bytes / size_of::<Option<Entry>>())
+}
+
 impl SharedTable {
-    /// Allocates a shared transposition table of `mib` MiB (1 through 64 MiB).
-    pub fn new(mib: u16) -> Result<Self, EngineError> {
-        if !(1..=64).contains(&mib) {
-            return Err(EngineError::InvalidHash);
-        }
-        let capacity = usize::from(mib) * 1024 * 1024 / size_of::<Option<Entry>>();
+    /// Allocates a shared transposition table of `mib` MiB.
+    pub fn new(mib: u32) -> Result<Self, EngineError> {
+        let capacity = entry_capacity(mib)?;
         let total = (1_usize << capacity.ilog2()).max(SHARDS);
         let per_shard = (total / SHARDS).max(1);
         let mut shards = Vec::with_capacity(SHARDS);
@@ -166,8 +174,8 @@ pub(super) struct Cache {
 }
 
 impl Cache {
-    pub(super) fn new(mib: u16) -> Result<Self, EngineError> {
-        let capacity = usize::from(mib) * 1024 * 1024 / size_of::<Option<Entry>>();
+    pub(super) fn new(mib: u32) -> Result<Self, EngineError> {
+        let capacity = entry_capacity(mib)?;
         let length = 1_usize << capacity.ilog2();
         let mut entries = Vec::new();
         entries

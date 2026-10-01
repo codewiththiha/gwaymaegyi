@@ -18,12 +18,14 @@ pub use datagen::{
 #[cfg(not(target_family = "wasm"))]
 pub use tablebase::NativeTablebases;
 
+pub const MAX_THREADS: u16 = 1_024;
+
 pub use gwaymaegyi_search::{
     BENCH_POSITIONS, BULLET_RECORD_BYTES, BenchmarkEntry, BenchmarkReport, BulletRecord,
-    DatasetError, Engine, EngineError, FilterKind, GameResult, Mode, Options, SearchLimits,
-    SearchReport, SearchStatus, SharedTable, SkillLevel, Strength, TablebaseProbe, TablebaseRoot,
-    TablebaseWdl, TrainingRecord, decode_bullet_records, encode_bullet_records, filter_lines,
-    run_benchmark,
+    DatasetError, Engine, EngineError, FilterKind, GameResult, MAX_DEPTH, MAX_HASH_MIB,
+    MAX_MULTI_PV, MAX_WORK, Mode, Options, SearchLimits, SearchReport, SearchStatus, SharedTable, SkillLevel,
+    Strength, TablebaseProbe, TablebaseRoot, TablebaseWdl, TrainingRecord, decode_bullet_records,
+    encode_bullet_records, filter_lines, run_benchmark,
 };
 #[cfg(not(target_family = "wasm"))]
 pub use uci::run_uci;

@@ -66,7 +66,11 @@ maximum supported caps. `Engine::set_limits` adjusts a running search without
 restarting its stack; exhausted lower caps stop it and retain completed results.
 Requested and effective limits are available separately.
 
-Limits: depth 1–64, positive node count, MultiPV 1–5, hash 1–64 MiB, and slices
-1–65536 work units. Browser workers should use small slices such as 128 or 256
-and yield a task between them; synchronous calls still block their calling thread.
+Native limits: depth 1–127, MultiPV 1–255, hash 1–131,072 MiB, and positive
+unsigned 32-bit slice work. Native default search budgets are full depth/nodes.
+WASM limits: depth 1–64, MultiPV 1–32, hash 1–64 MiB, and slices 1–65,536.
+Both accept positive unsigned 64-bit node budgets. The compiled constants and
+allocation details are documented in [resource ranges](resources.md).
+Browser workers should use small slices such as 128 or 256 and yield a task
+between them; synchronous calls still block their calling thread.
 Time allocation, protocol syntax, and asynchronous scheduling belong to adapters.
