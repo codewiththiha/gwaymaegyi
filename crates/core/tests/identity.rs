@@ -107,3 +107,16 @@ fn mate_precedes_clock_draws_and_two_knights_are_not_dead() -> Result<(), Box<dy
     );
     Ok(())
 }
+
+#[test]
+fn automatic_outcomes_reject_further_game_moves() -> Result<(), Box<dyn Error>> {
+    let mut game = Game::new("4k3/8/8/8/8/8/8/R3K3 w - - 150 1".parse()?);
+    let before = game.board().key();
+    assert_eq!(
+        game.play_uci("a1a2", false),
+        Err(gwaymaegyi_core::MoveError::GameOver)
+    );
+    assert_eq!(game.board().key(), before);
+    assert!(game.board().play_uci("a1a2", false).is_ok());
+    Ok(())
+}

@@ -35,6 +35,7 @@ impl Error for FenError {}
 /// External moves cannot bypass legality or notation checks.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MoveError {
+    GameOver,
     InvalidNotation,
     IllegalMove,
 }
@@ -42,6 +43,7 @@ pub enum MoveError {
 impl fmt::Display for MoveError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
+            Self::GameOver => "game is already over",
             Self::InvalidNotation => "invalid UCI move notation",
             Self::IllegalMove => "move is not legal in this position",
         })

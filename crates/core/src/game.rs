@@ -59,6 +59,9 @@ impl Game {
 
     /// Rejected moves leave both the position and its history unchanged.
     pub fn play_uci(&mut self, notation: &str, chess960: bool) -> Result<(), MoveError> {
+        if self.outcome() != Outcome::Ongoing {
+            return Err(MoveError::GameOver);
+        }
         let board = self.board.play_uci(notation, chess960)?;
         if board.halfmove_clock() == 0 {
             self.positions.clear();
