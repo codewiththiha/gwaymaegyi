@@ -31,3 +31,15 @@ fn stop_and_eof_return_a_legal_root_fallback_once() -> Result<(), Box<dyn Error>
     board.resolve_uci(lines[0], false)?;
     Ok(())
 }
+
+#[test]
+fn bench_and_printparams_emit_deterministic_protocol_lines() -> Result<(), Box<dyn Error>> {
+    let transcript = b"printparams\nbench 1 2\nisready\n".to_vec();
+    let mut output = Vec::new();
+    run_uci(Cursor::new(transcript), &mut output)?;
+    let text = String::from_utf8(output)?;
+    assert!(text.contains("AspStartWindow, int, 20, 5, 50, 2, 0.002\n"));
+    assert!(text.contains("info string bench positions 2 depth 1 nodes "));
+    assert!(text.contains("readyok\n"));
+    Ok(())
+}

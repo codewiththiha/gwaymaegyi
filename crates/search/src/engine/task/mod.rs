@@ -36,6 +36,7 @@ pub(super) struct Task {
     pub last_mistake: Option<i32>,
     pub style_applied: bool,
     pub tablebase: Option<std::sync::Arc<dyn crate::TablebaseProbe>>,
+    pub active_model: gwaymaegyi_eval::Model,
     root_nodes: Vec<u64>,
     root_base: Option<(usize, u64)>,
     lmr_table: Vec<i16>,
@@ -97,11 +98,22 @@ impl Task {
             last_mistake: None,
             style_applied: false,
             tablebase,
+            active_model: options.model(&root),
             root_nodes: vec![0; root_count],
             root_base: None,
             lmr_table: Self::lmr_table_for(options.tuning()),
             window: None,
         })
+    }
+
+    pub(super) fn model_for(&self, board: &Board) -> gwaymaegyi_eval::Model {
+        let total = board.material(gwaymaegyi_core::Color::White)
+            + board.material(gwaymaegyi_core::Color::Black);
+        if total < 3_500 {
+            gwaymaegyi_eval::Model::Endgame
+        } else {
+            self.active_model
+        }
     }
 
     #[expect(
@@ -238,7 +250,7 @@ impl Task {
             .bounds;
         self.frames.push(Frame::new(
             self.root,
-            Accumulator::new(&self.root, self.options.model(&self.root)),
+            Accumulator::new(&self.root, self.model_for(&self.root)),
             i16::from(self.iteration),
             0,
             window,
@@ -282,7 +294,7 @@ impl Task {
                 .context
                 .wrapping_add(board.key().full().rotate_left(7))
         };
-        let model = self.options.model(&board);
+        let model = self.model_for(&board);
         let accumulator = if pending.probe == Probe::Singular {
             parent.accumulator.clone()
         } else if model == parent.accumulator.model() {
@@ -438,6 +450,28 @@ mod tests {
             task.priors().their_last.to,
             Some(successor.chess_move().to())
         );
+        Ok(())
+    }
+
+    #[test]
+    fn aggressive_phase_switching_and_sacrifice_history_adjust_evaluation()
+    -> Result<(), Box<dyn Error>> {
+        let mut game = Game::start()?;
+        for uci in ["e2e4", "e7e5", "g1f3", "b8c6", "f3e5", "c6e5", "d2d4"] {
+            game.play_uci(uci, false)?;
+        }
+        let balance = game.board().material(game.board().side_to_move())
+            - game.board().material(game.board().side_to_move().opposite());
+        assert!(crate::Options::detect_sacrifice(game.material_history(), balance) < 0);
+
+        let options = Options::default().with_mode(crate::Mode::Aggressive);
+        let mut task = Task::new(&game, options, SearchLimits::default(), &[], 0, None)?;
+        task.update_phase_model(-50);
+        assert_eq!(task.active_model, gwaymaegyi_eval::Model::Endgame);
+        task.update_phase_model(120);
+        assert_eq!(task.active_model, gwaymaegyi_eval::Model::Balanced);
+        task.update_phase_model(450);
+        assert_eq!(task.active_model, gwaymaegyi_eval::Model::Aggressive);
         Ok(())
     }
 }

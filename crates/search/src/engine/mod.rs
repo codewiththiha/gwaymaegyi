@@ -257,7 +257,12 @@ impl Engine {
     pub fn evaluate(&self) -> i32 {
         let board = self.game.board();
         let state = Accumulator::new(board, self.options.model(board));
-        let static_score = self.options.evaluate(board, &state, board);
+        let side = board.side_to_move();
+        let balance = board.material(side) - board.material(side.opposite());
+        let sacrifice = crate::Options::detect_sacrifice(self.game.material_history(), balance);
+        let static_score = self
+            .options
+            .evaluate_with_sacrifice(board, &state, board, sacrifice);
         let corrected = static_score
             + self.options.tuning().get(crate::Parameter::CorrWeight)
                 * self.cache.history.correction(board, PriorMoves::default())

@@ -5,14 +5,18 @@
     reason = "Failure details use plain prose rather than Markdown sections."
 )]
 
-use std::{error::Error, fs, io::Write};
+use std::{error::Error, fs, io::Write, time::Instant};
 
 use gwaymaegyi_core::{Board, START_FEN, divide};
-use gwaymaegyi_search::{FilterKind, decode_bullet_records, encode_bullet_records, filter_lines};
+use gwaymaegyi_search::{
+    BENCH_POSITIONS, FilterKind, Options, decode_bullet_records, encode_bullet_records,
+    filter_lines, run_benchmark,
+};
 
 const HELP: &str = "gwaymaegyi 0.1.0 — portable chess engine\n\
 Usage:\n\
   gwaymaegyi [uci]\n\
+  gwaymaegyi bench [depth] [positions]\n\
   gwaymaegyi perft <depth> [FEN]\n\
   gwaymaegyi moves [FEN]\n\
   gwaymaegyi fen <FEN>\n\
@@ -33,6 +37,7 @@ pub fn run(
     match command.as_str() {
         "--help" | "-h" => output.write_all(HELP.as_bytes())?,
         "--version" | "-V" => writeln!(output, "gwaymaegyi {}", env!("CARGO_PKG_VERSION"))?,
+        "bench" => run_bench(args, output)?,
         "perft" => {
             let depth: u8 = args.next().ok_or("perft requires a depth")?.parse()?;
             if depth > 8 {
@@ -64,6 +69,40 @@ pub fn run(
         "filter" => run_filter(args, output)?,
         _ => return Err(format!("unknown command: {command}; try --help").into()),
     }
+    Ok(())
+}
+
+fn run_bench(
+    mut args: impl Iterator<Item = String>,
+    output: &mut impl Write,
+) -> Result<(), Box<dyn Error>> {
+    let depth: u8 = match args.next() {
+        Some(raw) => raw.parse()?,
+        None => 4,
+    };
+    if !(1..=12).contains(&depth) {
+        return Err("bench depth must be between 1 and 12".into());
+    }
+    let count: usize = match args.next() {
+        Some(raw) => raw.parse()?,
+        None => BENCH_POSITIONS.len(),
+    };
+    if !(1..=BENCH_POSITIONS.len()).contains(&count) {
+        return Err("bench position count must be between 1 and 50".into());
+    }
+    if args.next().is_some() {
+        return Err("bench takes at most two arguments".into());
+    }
+    let started = Instant::now();
+    let report = run_benchmark(depth, count, Options::default())?;
+    let raw_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+    let elapsed_ms = raw_ms.max(1);
+    let nps = report.total_nodes.saturating_mul(1_000) / elapsed_ms;
+    writeln!(
+        output,
+        "bench: {} positions, depth {}, {} nodes, {} nps",
+        report.positions, report.depth, report.total_nodes, nps
+    )?;
     Ok(())
 }
 

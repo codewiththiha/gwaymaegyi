@@ -118,8 +118,8 @@ impl TrainingRecord {
     }
 
     #[must_use]
-    pub const fn fen(&self) -> &str {
-        self.fen.as_str()
+    pub fn fen(&self) -> &str {
+        &self.fen
     }
 
     #[must_use]
@@ -291,7 +291,7 @@ impl BulletRecord {
         out[24..26].copy_from_slice(&self.score.to_le_bytes());
         out[26] = self.result.code();
         out[27] = u8::try_from(self.white_king.index()).unwrap_or(0);
-        out[28] = u8::try_from(self.black_king.index() ^ 56).unwrap_or(0);
+        out[28] = u8::try_from(self.black_king.index() ^ 0x38).unwrap_or(0);
         out
     }
 

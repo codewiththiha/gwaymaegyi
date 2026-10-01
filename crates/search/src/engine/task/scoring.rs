@@ -9,8 +9,40 @@ use gwaymaegyi_core::{MoveKind, PieceKind, Successor};
 
 impl Task {
     pub(super) fn evaluate(&self, frame: &Frame) -> i32 {
-        self.options
-            .evaluate(&self.root, &frame.accumulator, &frame.board)
+        let sacrifice = if matches!(
+            self.options.mode(),
+            crate::Mode::Aggressive | crate::Mode::Human
+        ) && self.game.material_history().len() + usize::from(frame.ply) >= 6
+        {
+            self.path_sacrifice(frame)
+        } else {
+            0
+        };
+        self.options.evaluate_with_sacrifice(
+            &self.root,
+            &frame.accumulator,
+            &frame.board,
+            sacrifice,
+        )
+    }
+
+    fn path_sacrifice(&self, frame: &Frame) -> i32 {
+        let base = self.game.material_history();
+        let mut balances = Vec::with_capacity(base.len() + usize::from(frame.ply));
+        balances.extend_from_slice(base);
+        for parent in &self.frames {
+            if parent.ply > 0 && parent.ply < frame.ply && parent.excluded.is_none() {
+                let side = parent.board.side_to_move();
+                let diff = parent.board.material(side) - parent.board.material(side.opposite());
+                balances.push(diff);
+            }
+        }
+        let side = frame.board.side_to_move();
+        let current = frame.board.material(side) - frame.board.material(side.opposite());
+        if frame.ply > 0 {
+            balances.push(current);
+        }
+        crate::Options::detect_sacrifice(&balances, current)
     }
 
     /// TT move, queen promotions, SEE-verified captures, quiet moves, then

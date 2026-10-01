@@ -164,31 +164,87 @@ impl Options {
         state: &gwaymaegyi_eval::Accumulator,
         board: &gwaymaegyi_core::Board,
     ) -> i32 {
+        self.evaluate_with_sacrifice(root, state, board, 0)
+    }
+
+    pub(super) fn evaluate_with_sacrifice(
+        self,
+        root: &gwaymaegyi_core::Board,
+        state: &gwaymaegyi_eval::Accumulator,
+        board: &gwaymaegyi_core::Board,
+        sacrifice: i32,
+    ) -> i32 {
         let raw = state.score().clamp(-40_000, 40_000);
         let mut score = raw * 100 / 195;
         if matches!(self.mode(), Mode::Aggressive | Mode::Human) {
             let color = root.side_to_move();
+            let our_side = board.side_to_move() == color;
             let total = board.material(color) + board.material(color.opposite());
-            score = score * (750 + total / 25) / 1024;
             let lost = root.material(color) - board.material(color);
             let enemy_lost = root.material(color.opposite()) - board.material(color.opposite());
-            if total > 4500 && lost > enemy_lost + 100 {
-                let favorable = if board.side_to_move() == color {
-                    score > 0
+            let mut bonus = 0;
+            if sacrifice < 0 && total > 4500 {
+                let divisor = if sacrifice < -300 {
+                    5
+                } else if sacrifice < -100 {
+                    10
                 } else {
-                    score < 0
+                    20
                 };
-                if favorable {
-                    score += if board.side_to_move() == color {
-                        30
+                let tier = if our_side {
+                    if score > 500 {
+                        2
                     } else {
-                        -30
-                    };
+                        i32::from(score > 0)
+                    }
+                } else if score < -500 {
+                    -2
+                } else {
+                    -i32::from(score < 0)
+                };
+                bonus = 50 * tier * 10 / divisor;
+            }
+            let root_ahead = (our_side && score > 0) || (!our_side && score < 0);
+            let root_queenless = board
+                .pieces(color, gwaymaegyi_core::PieceKind::Queen)
+                .is_empty();
+            let mut scale = 750 + total / 25;
+            if root_queenless || (total < 4000 && root_ahead) {
+                scale -= 102;
+            }
+            score = score * scale / 1024 + bonus;
+            if sacrifice == 0 && total > 4500 && lost > enemy_lost + 100 {
+                let favorable = if our_side { score > 0 } else { score < 0 };
+                if favorable {
+                    score += if our_side { 30 } else { -30 };
                 }
             }
         }
         score = score * (200 - i32::try_from(board.halfmove_clock().min(100)).unwrap_or(100)) / 200;
         score.clamp(-28_000, 28_000)
+    }
+
+    pub(super) fn detect_sacrifice(material_history: &[i32], current_balance: i32) -> i32 {
+        if material_history.len() < 6 {
+            return 0;
+        }
+        let last = material_history.len() - 1;
+        let mut index = if (last & 1) == 0 { 2 } else { 1 };
+        while index + 4 < material_history.len() {
+            if material_history[index] < 0
+                && material_history[index + 1] > 0
+                && material_history[index + 2] < 0
+                && material_history[index + 3] > 0
+                && material_history[index + 4] < 0
+            {
+                return material_history[index + 4];
+            }
+            if material_history[index] < 0 && material_history[index] == current_balance {
+                return material_history[index];
+            }
+            index += 2;
+        }
+        0
     }
 
     pub(super) const fn effective_pv(self) -> u8 {

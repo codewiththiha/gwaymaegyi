@@ -177,8 +177,24 @@ impl Task {
                 && (frame.board.halfmove_clock() >= 100 || self.repetitions(frame) >= 3))
         {
             frame.cache_policy = CachePolicy::Skip;
+            let score = if !frame.board.insufficient_material()
+                && frame.ply > 0
+                && self.options.mode() == Mode::Aggressive
+            {
+                let side = frame.board.side_to_move();
+                let diff = frame.board.material(side) - frame.board.material(side.opposite());
+                if diff < -100 {
+                    50
+                } else if diff > 100 {
+                    -50
+                } else {
+                    0
+                }
+            } else {
+                0
+            };
             return Some(Action::Complete(NodeResult {
-                score: 0,
+                score,
                 pv: Vec::new(),
             }));
         }

@@ -263,7 +263,7 @@ fn has_monster_outpost(board: &Board, color: Color) -> bool {
     for base_index in WHITE_OUTPOST_INDICES {
         let index = match color {
             Color::White => base_index,
-            Color::Black => base_index ^ 56,
+            Color::Black => base_index ^ 0x38,
         };
         let Some(square) = Square::from_index(index) else {
             continue;
@@ -282,11 +282,11 @@ fn has_monster_outpost(board: &Board, color: Color) -> bool {
     false
 }
 
-pub(super) const fn offset_square(origin: Square, delta_file: i8, delta_rank: i8) -> Option<Square> {
-    let Some(file) = origin.file().checked_add_signed(delta_file) else {
+pub(super) const fn offset_square(origin: Square, df: i8, dr: i8) -> Option<Square> {
+    let Some(file) = origin.file().checked_add_signed(df) else {
         return None;
     };
-    let Some(rank) = origin.rank().checked_add_signed(delta_rank) else {
+    let Some(rank) = origin.rank().checked_add_signed(dr) else {
         return None;
     };
     Square::new(file, rank)

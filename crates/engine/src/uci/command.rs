@@ -11,6 +11,8 @@ pub(super) enum Command {
     Option { name: String, value: String },
     Position { fen: String, moves: Vec<String> },
     Go(Go),
+    Bench { depth: u8, count: usize },
+    PrintParams,
     Stop,
     PonderHit,
     Quit,
@@ -37,11 +39,37 @@ impl Command {
             "quit" => Ok(Self::Quit),
             "stop" => Ok(Self::Stop),
             "ponderhit" => Ok(Self::PonderHit),
+            "printparams" => Ok(Self::PrintParams),
+            "bench" => Self::bench(&fields[1..]),
             "setoption" => Self::option(&fields),
             "position" => Self::position(&fields),
             "go" => Go::parse(&fields[1..]).map(Self::Go),
             _ => Ok(Self::Ignore),
         }
+    }
+    fn bench(fields: &[&str]) -> Result<Self, String> {
+        if fields.len() > 2 {
+            return Err("bench accepts at most depth and position count".into());
+        }
+        let depth = match fields.first() {
+            Some(raw) => raw
+                .parse::<u8>()
+                .map_err(|_| "bench depth must be an integer".to_owned())?,
+            None => 4,
+        };
+        if !(1..=12).contains(&depth) {
+            return Err("bench depth must be between 1 and 12".into());
+        }
+        let count = match fields.get(1) {
+            Some(raw) => raw
+                .parse::<usize>()
+                .map_err(|_| "bench count must be an integer".to_owned())?,
+            None => gwaymaegyi_search::BENCH_POSITIONS.len(),
+        };
+        if !(1..=gwaymaegyi_search::BENCH_POSITIONS.len()).contains(&count) {
+            return Err("bench count must be between 1 and 50".into());
+        }
+        Ok(Self::Bench { depth, count })
     }
     fn option(fields: &[&str]) -> Result<Self, String> {
         if fields.get(1) != Some(&"name") {

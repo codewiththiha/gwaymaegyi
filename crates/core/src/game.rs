@@ -34,14 +34,18 @@ pub enum Outcome {
 pub struct Game {
     board: Board,
     positions: Vec<u64>,
+    material_balances: Vec<i32>,
 }
 
 impl Game {
     #[must_use]
     pub fn new(board: Board) -> Self {
+        let side = board.side_to_move();
+        let balance = board.material(side) - board.material(side.opposite());
         Self {
             board,
             positions: vec![board.key().full()],
+            material_balances: vec![balance],
         }
     }
 
@@ -60,6 +64,11 @@ impl Game {
         &self.positions
     }
 
+    #[must_use]
+    pub fn material_history(&self) -> &[i32] {
+        &self.material_balances
+    }
+
     /// Rejected moves leave both the position and its history unchanged.
     pub fn play_uci(&mut self, notation: &str, chess960: bool) -> Result<(), MoveError> {
         if self.outcome() != Outcome::Ongoing {
@@ -70,6 +79,9 @@ impl Game {
             self.positions.clear();
         }
         self.positions.push(board.key().full());
+        let side = board.side_to_move();
+        self.material_balances
+            .push(board.material(side) - board.material(side.opposite()));
         self.board = board;
         Ok(())
     }

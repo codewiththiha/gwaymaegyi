@@ -156,6 +156,39 @@ impl Worker {
                     return self.rejected(&error);
                 }
             }
+            Command::Bench { depth, count } => {
+                self.finish();
+                let started = Instant::now();
+                let report =
+                    match gwaymaegyi_search::run_benchmark(depth, count, self.engine.options()) {
+                        Ok(report) => report,
+                        Err(error) => return self.rejected(&error.to_string()),
+                    };
+                let raw_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+                let elapsed_ms = raw_ms.max(1);
+                let nps = report.total_nodes.saturating_mul(1_000) / elapsed_ms;
+                let msg = format!(
+                    "info string bench positions {} depth {} nodes {} nps {nps}",
+                    report.positions, report.depth, report.total_nodes
+                );
+                return self.send(msg);
+            }
+            Command::PrintParams => {
+                let mut lines = String::new();
+                for spec in Parameter::SPECS {
+                    let step = ((spec.max - spec.min) / 20).max(1);
+                    if writeln!(
+                        lines,
+                        "{}, int, {}, {}, {}, {step}, 0.002",
+                        spec.name, spec.default, spec.min, spec.max
+                    )
+                    .is_err()
+                    {
+                        return false;
+                    }
+                }
+                return self.send(lines.trim_end().to_owned());
+            }
             Command::Stop => self.finish(),
             Command::PonderHit => {
                 if let Some(active) = self.active.as_mut() {

@@ -159,3 +159,18 @@ pub fn decode_bullet_record(bytes: &[u8]) -> Result<String, JsError> {
     let record = packed.to_training_record().map_err(js_error)?;
     Ok(record.to_string())
 }
+
+/// Runs the portable benchmark suite for `count` positions at `depth` and returns JSON.
+#[wasm_bindgen]
+pub fn run_benchmark_json(depth: u8, count: u8) -> Result<String, JsError> {
+    let report = gwaymaegyi_search::run_benchmark(
+        depth,
+        usize::from(count),
+        gwaymaegyi_search::Options::default(),
+    )
+    .map_err(js_error)?;
+    Ok(format!(
+        "{{\"depth\":{},\"positions\":{},\"totalNodes\":\"{}\"}}",
+        report.depth, report.positions, report.total_nodes
+    ))
+}

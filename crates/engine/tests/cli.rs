@@ -54,6 +54,8 @@ fn moves_and_fen_use_the_shared_board() -> Result<(), Box<dyn Error>> {
     assert_eq!(output(&["moves"])?.split_whitespace().count(), 20);
     let fen = "4k3/8/8/8/8/8/8/4K3 w - - 0 1";
     assert_eq!(output(&["fen", fen])?, format!("{fen}\n"));
+    let bench = output(&["bench", "2", "2"])?;
+    assert!(bench.starts_with("bench: 2 positions, depth 2, "));
     Ok(())
 }
 

@@ -1,5 +1,6 @@
 //! Deterministic cooperative search and playing controls for native/WASM hosts.
 
+mod bench;
 mod config;
 mod dataset;
 mod engine;
@@ -9,6 +10,7 @@ mod strength;
 mod tablebase;
 mod tuning;
 
+pub use bench::{BENCH_POSITIONS, BenchmarkEntry, BenchmarkReport, run_benchmark};
 pub use config::{Mode, Options, SearchLimits};
 pub use dataset::{
     BULLET_RECORD_BYTES, BulletRecord, DatasetError, FilterKind, GameResult, TrainingRecord,

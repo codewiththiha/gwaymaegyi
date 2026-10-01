@@ -6,8 +6,9 @@
 )]
 
 use gwaymaegyi_search::{
-    BULLET_RECORD_BYTES, BulletRecord, DatasetError, FilterKind, GameResult, TrainingRecord,
-    decode_bullet_records, encode_bullet_records, filter_lines,
+    BENCH_POSITIONS, BULLET_RECORD_BYTES, BulletRecord, DatasetError, FilterKind, GameResult,
+    Options, TrainingRecord, decode_bullet_records, encode_bullet_records, filter_lines,
+    run_benchmark,
 };
 
 fn rec(line: &str) -> TrainingRecord {
@@ -123,4 +124,17 @@ fn all_eleven_position_filters_distinguish_matching_and_quiet_records() {
     let lines = format!("{quiet}\n{f11}\n");
     let matched = filter_lines(&lines, FilterKind::TieredSacrificeCompensation).unwrap();
     assert_eq!(matched, vec![f11]);
+}
+
+#[test]
+fn benchmark_suite_validates_all_fifty_positions_and_runs_deterministically() {
+    assert_eq!(BENCH_POSITIONS.len(), 50);
+    for fen in BENCH_POSITIONS {
+        assert!(fen.parse::<gwaymaegyi_core::Board>().is_ok());
+    }
+    let first = run_benchmark(2, 3, Options::default()).unwrap();
+    let second = run_benchmark(2, 3, Options::default()).unwrap();
+    assert_eq!(first, second);
+    assert_eq!(first.positions, 3);
+    assert!(first.total_nodes > 0);
 }

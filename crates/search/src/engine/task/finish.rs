@@ -194,6 +194,12 @@ impl Task {
                 self.report.best_move = line.moves.first().copied();
                 self.report.score_cp = Some(line.score_cp);
             }
+            if self.iteration >= 6
+                && matches!(self.options.mode(), Mode::Aggressive | Mode::Human)
+                && let Some(best) = self.report.variations.first()
+            {
+                self.update_phase_model(best.score_cp);
+            }
         } else {
             self.report.score_cp = Some(result.score);
             if self.root.legal_moves().is_empty() || self.root.insufficient_material() {
@@ -209,6 +215,18 @@ impl Task {
             self.iteration += 1;
             self.root_nodes.fill(0);
         }
+    }
+
+    pub(super) fn update_phase_model(&mut self, root_score: i32) {
+        let total = self.root.material(gwaymaegyi_core::Color::White)
+            + self.root.material(gwaymaegyi_core::Color::Black);
+        self.active_model = if total < 3_500 || root_score < -20 {
+            gwaymaegyi_eval::Model::Endgame
+        } else if root_score > 400 {
+            gwaymaegyi_eval::Model::Aggressive
+        } else {
+            gwaymaegyi_eval::Model::Balanced
+        };
     }
 
     /// Human-style selection: opening diversity, an accumulated mistake

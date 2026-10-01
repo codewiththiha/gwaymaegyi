@@ -209,7 +209,7 @@ fn space_score(board: &Board, color: Color) -> i32 {
     for base_index in WHITE_CENTER_INDICES {
         let index = match color {
             Color::White => base_index,
-            Color::Black => base_index ^ 56,
+            Color::Black => base_index ^ 0x38,
         };
         let Some(square) = Square::from_index(index) else {
             continue;
@@ -263,7 +263,7 @@ fn development_penalty(board: &Board, color: Color) -> i32 {
     for base_index in WHITE_UNDEVELOPED_INDICES {
         let index = match color {
             Color::White => base_index,
-            Color::Black => base_index ^ 56,
+            Color::Black => base_index ^ 0x38,
         };
         if let Some(square) = Square::from_index(index)
             && minors.contains(square)
@@ -274,7 +274,7 @@ fn development_penalty(board: &Board, color: Color) -> i32 {
     if let Some(king) = board.pieces(color, PieceKind::King).into_iter().next() {
         let lookup = match color {
             Color::White => king.index(),
-            Color::Black => king.index() ^ 56,
+            Color::Black => king.index() ^ 0x38,
         };
         penalty += KING_PENALTY_WHITE_PERSPECTIVE[lookup];
     }

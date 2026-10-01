@@ -118,6 +118,9 @@ const {pathToFileURL} = require('node:url');
     assert.equal(wasm.decode_bullet_record(packed), 'r1bqkbnr/pppppppp/2n5/8/4P3/8/PPPP1PPP/RNBQK1NR w - - 0 0 | 40 | 1.0');
     assert.equal(wasm.filter_training_line('r1bqkbnr/pppppppp/2n5/8/4P3/8/PPPP1PPP/RNBQK1NR w KQkq - 0 1 | 40 | 1.0', 'material-sacrifice'), true);
     assert.equal(wasm.filter_training_line('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 | 15 | 0.5', '11'), false);
+    const benchReport = JSON.parse(wasm.run_benchmark_json(1, 2));
+    assert.equal(benchReport.depth, 1);
+    assert.equal(benchReport.positions, 2);
   } finally { first.free(); second.free(); }
   console.log(`WASM search: ${checks} raw scores, ${cases.length} native snapshots, quantum invariance, rollback, stop, terminal checks passed (${capabilities.simd128 ? 'simd128' : 'portable'})`);
 })().catch(error => { console.error(error); process.exitCode = 1; });
