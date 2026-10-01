@@ -26,6 +26,13 @@ name = "gwaymaegyi-core"
 version = "0.1.0"
 
 [[package]]
+name = "gwaymaegyi-eval"
+version = "0.1.0"
+dependencies = [
+ "gwaymaegyi-core",
+]
+
+[[package]]
 name = "gwaymaegyi-wasm"
 version = "0.1.0"
 dependencies = [

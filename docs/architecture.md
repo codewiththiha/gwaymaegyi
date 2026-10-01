@@ -5,6 +5,7 @@
 | Crate | Owns | Must not own |
 | --- | --- | --- |
 | `crates/core` | Domain types, position state, FEN, attacks, legal moves, perft | Clocks, threads, filesystem, platform dispatch |
+| `crates/eval` | Immutable model bytes, incremental accumulators | Search, clocks, platform intrinsics |
 | `crates/engine` | Process arguments, stdout/stderr, native exit codes | Chess rules |
 | `crates/wasm` | Browser-facing conversion and errors | A second board implementation, native assumptions |
 
@@ -25,8 +26,9 @@ not a claim of optimized engine throughput.
 
 ## Extension boundaries
 
-Introduce evaluation and search crates only when their implementation is needed.
-Evaluation will own immutable weights and per-worker accumulators. Search will own
+The evaluation crate owns immutable weights and per-worker accumulators. Its model
+bytes are borrowed, decoded safely, and never duplicated into a heap-sized weight
+table. Search will own
 history, its indexed stack, transposition access, and typed search limits. The
 rules core must not prefetch or access search state.
 

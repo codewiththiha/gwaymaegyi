@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/core", "crates/engine", "crates/wasm"]
+members = ["crates/core", "crates/eval", "crates/engine", "crates/wasm"]
 default-members = ["crates/engine"]
 resolver = "3"
 
@@ -12,6 +12,7 @@ repository = "https://github.com/codewiththiha/gwaymaegyi"
 
 [workspace.dependencies]
 gwaymaegyi-core = { path = "crates/core" }
+gwaymaegyi-eval = { path = "crates/eval" }
 wasm-bindgen = "=0.2.129"
 
 [workspace.lints.rust]

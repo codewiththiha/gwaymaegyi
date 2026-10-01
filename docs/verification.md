@@ -26,3 +26,13 @@ Later documentation/tooling commits do not change these rules fixtures.
 
 Use the roadmap's next gate rather than guessing that missing subsystems already
 exist. Keep this record tied to executed checks when the engine evolves.
+
+## Position identity and game history
+
+Verified revision: `9f4231ca214199dd2d6606fec63cc626fd84ca46`.
+[CI evidence](https://github.com/codewiththiha/gwaymaegyi/actions/runs/36798276197).
+Incremental and recomputed full/pawn/non-pawn keys agree across legal transitions.
+Identity distinguishes rook origins, excludes counters, and includes only legal
+en passant availability. Tests cover claims, automatic repetition/clock draws,
+checkmate precedence, and insufficient-material boundaries. All 21 native tests
+and the existing compiled WASM checks pass.

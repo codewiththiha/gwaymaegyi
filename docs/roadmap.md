@@ -17,5 +17,6 @@ Do not turn this list into empty placeholder crates.
 
 The rules foundation gate is verified on Linux and in the compiled WASM module.
 See [verification](verification.md) for the source revision and checks.
-The next increment is position identity and game state. Search and evaluation
-are not yet available; generated binaries must not imply otherwise.
+The position identity and game-state gate is also verified. The next acceptance
+gate is evaluation, followed by single-worker search. Search is not yet available;
+generated binaries must not imply otherwise.
