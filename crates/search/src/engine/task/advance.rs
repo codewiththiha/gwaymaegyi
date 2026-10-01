@@ -94,7 +94,7 @@ impl Task {
     }
 
     fn cached(frame: &Frame, cache: &Cache) -> Option<NodeResult> {
-        if !frame.pv_node {
+        if !frame.pv_node && !frame.synthetic {
             if let Some(entry) = cache
                 .probe(frame.key)
                 .filter(|entry| entry.depth >= frame.depth.max(0))

@@ -25,6 +25,7 @@ pub(super) struct Task {
     pub excluded: Vec<Move>,
     pub root: Board,
     pub root_moves: Vec<Move>,
+    scope: u64,
 }
 
 impl Task {
@@ -72,6 +73,8 @@ impl Task {
             excluded: Vec::new(),
             root,
             root_moves,
+            scope: root.key().full().rotate_left(33)
+                ^ (options.model(&root) as u64 + 1).wrapping_mul(0xd6e8_feb8_6659_fd93),
         })
     }
 
@@ -98,7 +101,7 @@ impl Task {
                     window,
                     null,
                 } => {
-                    let child = Self::child(&frame, depth, window, null)?;
+                    let child = self.child(&frame, depth, window, null)?;
                     self.frames.push(frame);
                     self.frames.push(child);
                 }
@@ -147,10 +150,12 @@ impl Task {
             true,
             false,
             context,
+            self.scope,
         ));
     }
 
     fn child(
+        &self,
         parent: &Frame,
         depth: i16,
         window: [i32; 2],
@@ -178,15 +183,22 @@ impl Task {
                 .context
                 .wrapping_add(board.key().full().rotate_left(7))
         };
+        let model = self.options.model(&board);
+        let accumulator = if model == parent.accumulator.model() {
+            parent.accumulator.updated(&board)
+        } else {
+            Accumulator::new(&board, model)
+        };
         Ok(Frame::new(
             board,
-            parent.accumulator.updated(&board),
+            accumulator,
             depth,
             parent.ply + 1,
             window,
             window[1] - window[0] > 1,
             parent.synthetic || null,
             context,
+            self.scope,
         ))
     }
 }
@@ -215,6 +227,31 @@ mod tests {
         let mut excluded = task.frames.pop().ok_or(EngineError::InternalState)?;
         task.advance(&mut excluded, &mut cache)?;
         assert_eq!(excluded.cache_policy, CachePolicy::Skip);
+        Ok(())
+    }
+    #[test]
+    fn material_phase_changes_refresh_the_selected_model() -> Result<(), Box<dyn Error>> {
+        let game = Game::new("r3k3/4q3/8/8/8/8/q7/R2Q2KR w - - 0 1".parse()?);
+        let root_move = game.board().resolve_uci("a1a2", false)?;
+        let mut task = Task::new(
+            &game,
+            Options::default(),
+            SearchLimits::default(),
+            &[root_move],
+        )?;
+        task.start_pass();
+        let mut parent = task.frames.pop().ok_or(EngineError::InternalState)?;
+        let mut cache = Cache::new(1)?;
+        task.advance(&mut parent, &mut cache)?;
+        task.advance(&mut parent, &mut cache)?;
+        let child = task.child(&parent, 0, [-crate::INFINITY, crate::INFINITY], false)?;
+        assert_eq!(parent.accumulator.model(), gwaymaegyi_eval::Model::Balanced);
+        assert_eq!(child.accumulator.model(), gwaymaegyi_eval::Model::Endgame);
+        assert_eq!(
+            child.accumulator.score(),
+            gwaymaegyi_eval::Accumulator::new(&child.board, gwaymaegyi_eval::Model::Endgame)
+                .score()
+        );
         Ok(())
     }
 }

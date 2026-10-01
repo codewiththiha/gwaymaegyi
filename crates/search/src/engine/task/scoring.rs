@@ -1,37 +1,11 @@
 use super::Task;
-use crate::Mode;
 use crate::engine::{frame::Frame, table::Cache};
 use gwaymaegyi_core::{MoveKind, PieceKind};
 
 impl Task {
     pub(super) fn evaluate(&self, frame: &Frame) -> i32 {
-        let raw = frame.accumulator.score().clamp(-40_000, 40_000);
-        let mut score = raw * 100 / 195;
-        if matches!(self.options.mode(), Mode::Aggressive | Mode::Human) {
-            let color = self.root.side_to_move();
-            let total = frame.board.material(color) + frame.board.material(color.opposite());
-            score = score * (750 + total / 25) / 1024;
-            let lost = self.root.material(color) - frame.board.material(color);
-            let enemy_lost =
-                self.root.material(color.opposite()) - frame.board.material(color.opposite());
-            if total > 4500 && lost > enemy_lost + 100 {
-                let favorable = if frame.board.side_to_move() == color {
-                    score > 0
-                } else {
-                    score < 0
-                };
-                if favorable {
-                    score += if frame.board.side_to_move() == color {
-                        30
-                    } else {
-                        -30
-                    };
-                }
-            }
-        }
-        score = score * (200 - i32::try_from(frame.board.halfmove_clock().min(100)).unwrap_or(100))
-            / 200;
-        score.clamp(-28_000, 28_000)
+        self.options
+            .evaluate(&self.root, &frame.accumulator, &frame.board)
     }
 
     pub(super) fn order(frame: &mut Frame, cache: &Cache) {

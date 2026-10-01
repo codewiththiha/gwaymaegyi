@@ -73,8 +73,10 @@ impl Frame {
         pv_node: bool,
         synthetic: bool,
         context: u64,
+        scope: u64,
     ) -> Self {
-        let key = board.key().full()
+        let key = scope
+            ^ board.key().full()
             ^ context.rotate_left(17)
             ^ u64::from(board.halfmove_clock()).wrapping_mul(0x9e37_79b9_7f4a_7c15);
         Self {

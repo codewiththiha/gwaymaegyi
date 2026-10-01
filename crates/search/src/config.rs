@@ -145,6 +145,39 @@ impl Options {
         }
     }
 
+    pub(super) fn evaluate(
+        self,
+        root: &gwaymaegyi_core::Board,
+        state: &gwaymaegyi_eval::Accumulator,
+        board: &gwaymaegyi_core::Board,
+    ) -> i32 {
+        let raw = state.score().clamp(-40_000, 40_000);
+        let mut score = raw * 100 / 195;
+        if matches!(self.mode(), Mode::Aggressive | Mode::Human) {
+            let color = root.side_to_move();
+            let total = board.material(color) + board.material(color.opposite());
+            score = score * (750 + total / 25) / 1024;
+            let lost = root.material(color) - board.material(color);
+            let enemy_lost = root.material(color.opposite()) - board.material(color.opposite());
+            if total > 4500 && lost > enemy_lost + 100 {
+                let favorable = if board.side_to_move() == color {
+                    score > 0
+                } else {
+                    score < 0
+                };
+                if favorable {
+                    score += if board.side_to_move() == color {
+                        30
+                    } else {
+                        -30
+                    };
+                }
+            }
+        }
+        score = score * (200 - i32::try_from(board.halfmove_clock().min(100)).unwrap_or(100)) / 200;
+        score.clamp(-28_000, 28_000)
+    }
+
     pub(super) const fn effective_pv(self) -> u8 {
         if !matches!(self.strength, Strength::Full) && !matches!(self.mode, Mode::Analysis) {
             5

@@ -139,7 +139,8 @@ impl Engine {
 
     #[must_use]
     pub fn evaluate(&self) -> i32 {
-        Accumulator::new(self.game.board(), self.options.model(self.game.board())).score() * 100
-            / 195
+        let board = self.game.board();
+        let state = Accumulator::new(board, self.options.model(board));
+        self.options.evaluate(board, &state, board)
     }
 }
