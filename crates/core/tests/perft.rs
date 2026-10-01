@@ -40,7 +40,7 @@ fn standard_perft_suite() -> Result<(), Box<dyn Error>> {
 #[test]
 fn zero_depth_includes_terminal_positions() -> Result<(), Box<dyn Error>> {
     let mate: Board = "7k/6Q1/6K1/8/8/8/8/8 b - - 0 1".parse()?;
-    assert!(mate.legal_moves().is_empty());
+    assert_eq!(mate.legal_moves(), Vec::new());
     assert_eq!(perft(&mate, 0), 1);
     assert_eq!(perft(&mate, 1), 0);
     Ok(())
