@@ -5,7 +5,7 @@ use crate::engine::{
     frame::{Action, Frame, NodeResult, Pending, Probe, Stage},
     table::Cache,
 };
-use crate::{Completion, EngineError, Mode, Parameter, PrincipalVariation};
+use crate::{Completion, EngineError, Mode, Parameter, PrincipalVariation, Strength};
 
 impl Task {
     pub(super) fn returned(
@@ -198,28 +198,69 @@ impl Task {
         }
     }
 
-    fn choose(&self) -> usize {
-        if self.options.mode() == Mode::Analysis {
+    /// Reference human-play policy: opening diversity, an accumulated mistake
+    /// budget, and sacrifice preference, all deterministic under the seed.
+    fn choose(&mut self) -> usize {
+        if self.options.mode() == Mode::Analysis
+            || !matches!(self.options.strength(), Strength::Approximate(_))
+        {
+            self.last_mistake = None;
             return 0;
         }
         let Some(best) = self.report.variations.first() else {
+            self.last_mistake = None;
             return 0;
         };
-        let tolerance = self.options.loss_tolerance();
-        let eligible = self
-            .report
-            .variations
-            .iter()
-            .take_while(|line| best.score_cp - line.score_cp <= tolerance)
-            .count()
-            .max(1);
-        let sample = self
-            .root
-            .key()
-            .full()
-            .wrapping_add(self.options.seed())
-            .rotate_left(19)
-            .wrapping_add(u64::from(self.iteration));
-        usize::try_from(sample % eligible as u64).unwrap_or(0)
+        let our_color = self.root.side_to_move();
+        let starting_mat = self.root.material(our_color);
+        let ply = i32::try_from(self.game.position_history().len()).unwrap_or(0) - 1;
+        let mut best_index = 0;
+        let mut mistake: Option<i32> = None;
+        let mut sacrifice: i32 = 0;
+        for (index, line) in self.report.variations.iter().enumerate().take(5) {
+            let eval_diff = best.score_cp - line.score_cp;
+            let m_diff = starting_mat - self.pv_material(&line.moves, our_color);
+            if ply < 7 && eval_diff < 25 && line.score_cp > -100 && index < 4 {
+                let draw =
+                    (self.options.seed() ^ self.root.key().full() ^ u64::from(self.iteration)) % 5;
+                if draw == index as u64 {
+                    best_index = index;
+                    mistake = Some(eval_diff);
+                }
+            }
+            if ply >= 7 && eval_diff > 0 && eval_diff < self.style_loss + 10 && best.score_cp < 5000 {
+                best_index = index;
+                mistake = Some(eval_diff);
+            }
+            if line.score_cp > 0
+                && m_diff < sacrifice
+                && ((m_diff < 0 && eval_diff < 50)
+                    || (m_diff <= -200 && eval_diff < 100)
+                    || (m_diff <= -400 && eval_diff < 200))
+            {
+                best_index = index;
+                mistake = Some(eval_diff);
+                sacrifice = m_diff;
+            }
+        }
+        self.last_mistake = mistake;
+        best_index
+    }
+
+    /// Material for our perspective at the end of a principal variation.
+    fn pv_material(
+        &self,
+        moves: &[gwaymaegyi_core::Move],
+        our_color: gwaymaegyi_core::Color,
+    ) -> i32 {
+        let mut board = self.root;
+        for chess_move in moves {
+            let notation = chess_move.to_uci(self.options.chess960());
+            board = match board.play_uci(&notation, self.options.chess960()) {
+                Ok(board) => board,
+                Err(_) => break,
+            };
+        }
+        board.material(our_color)
     }
 }

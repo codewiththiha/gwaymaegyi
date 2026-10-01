@@ -32,6 +32,24 @@ Aspiration retry state is explicit and survives work slices. Failed bounds widen
 monotonically; partial/retried passes do not replace completed variations. Node
 caps and stop/reset remain effective during retries.
 
+## Human-like play
+
+Approximate-strength selections use the reference human-play policy with
+deterministic substitutes for its random device:
+
+- Opening diversity: before move 7, a line within 25 cp of the best that still
+  leads may replace it when a seeded draw matches its index.
+- Mistake budget: from move 7 on, the first line whose deficit is positive and
+  below the accumulated budget plus 10 cp may be chosen; the chosen deficit is
+  subtracted from the budget and a per-move budget of 120 minus a quarter
+  centipawn per nominal Elo is added.
+- Sacrifice preference: a leading line that already trades material may replace
+  the choice at progressively wider material deficits.
+
+The budget persists inside one `Engine` across searches and resets on new
+games, position resets, or configuration commits. Full strength and analysis
+always take the best line.
+
 ## Native CPU parallelism
 
 `gwaymaegyi::analyze_batch` runs independent AnalysisRequest values using 1–16

@@ -6,7 +6,7 @@
     reason = "Errors are documented in plain prose."
 )]
 
-use crate::{Completion, EngineError, Options, SearchLimits, SearchReport, SearchStatus};
+use crate::{Completion, EngineError, Options, SearchLimits, SearchReport, SearchStatus, Strength};
 mod frame;
 mod history;
 mod table;
@@ -23,6 +23,7 @@ pub struct Engine {
     options: Options,
     cache: Cache,
     task: Option<Task>,
+    style_loss: i32,
 }
 
 impl Engine {
@@ -34,6 +35,7 @@ impl Engine {
             options,
             cache: Cache::new(options.hash_mib())?,
             task: None,
+            style_loss: 0,
         })
     }
     #[must_use]
@@ -70,6 +72,7 @@ impl Engine {
         }
         self.task = None;
         self.options = options;
+        self.style_loss = 0;
         Ok(())
     }
 
@@ -85,6 +88,7 @@ impl Engine {
         self.game = game;
         self.task = None;
         self.cache.clear();
+        self.style_loss = 0;
         Ok(())
     }
 
@@ -93,10 +97,11 @@ impl Engine {
         self.game
             .play_uci(notation, self.options.chess960())
             .map_err(|error| EngineError::InvalidMove(error.to_string()))?;
-        self.task = None;
+        self.apply_style_budget();
         Ok(())
     }
 
+    /// Invalid limits do not interrupt a currently valid search.
     /// Invalid limits do not interrupt a currently valid search.
     pub fn start(&mut self, limits: SearchLimits) -> Result<(), EngineError> {
         self.start_moves(limits, &[])
@@ -116,7 +121,8 @@ impl Engine {
                 allowed.push(chess_move);
             }
         }
-        let task = Task::new(&self.game, self.options, limits, &allowed)?;
+        self.apply_style_budget();
+        let task = Task::new(&self.game, self.options, limits, &allowed, self.style_loss)?;
         self.cache.next_search();
         self.task = Some(task);
         Ok(())
@@ -158,6 +164,29 @@ impl Engine {
         if let Some(task) = self.task.as_mut() {
             if task.report.status == SearchStatus::Running {
                 task.stop(Completion::Stopped);
+            }
+        }
+        self.apply_style_budget();
+    }
+
+    /// Carry the finished search's style state forward and update the
+    /// accumulated mistake budget once per move, as in the reference policy.
+    fn apply_style_budget(&mut self) {
+        let Some(task) = self.task.as_mut() else {
+            return;
+        };
+        if task.style_applied {
+            return;
+        }
+        task.style_applied = true;
+        self.style_loss = task.style_loss;
+        let ply = i32::try_from(self.game.position_history().len()).unwrap_or(0) - 1;
+        if matches!(task.options.strength(), Strength::Approximate(_)) {
+            if let Some(mistake) = task.last_mistake {
+                self.style_loss -= mistake;
+            }
+            if ply >= 7 {
+                self.style_loss += task.options.cp_loss();
             }
         }
     }

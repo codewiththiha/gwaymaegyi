@@ -210,12 +210,12 @@ impl Options {
         }
         limits
     }
-    pub(super) fn loss_tolerance(self) -> i32 {
+    /// Reference mistake budget per move: 120 minus a quarter centipawn per Elo.
+    #[must_use]
+    pub(super) fn cp_loss(self) -> i32 {
         match self.strength {
+            Strength::Approximate(elo) => (120 - i32::from(elo) / 25).max(0),
             Strength::Full => 0,
-            Strength::Approximate(elo) => {
-                i32::from(3000 - elo) / 15 + if self.mode == Mode::Human { 20 } else { 0 }
-            }
         }
     }
 }

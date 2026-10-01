@@ -32,6 +32,9 @@ pub(super) struct Task {
     pub root: Board,
     pub root_moves: Vec<Move>,
     pub scope: u64,
+    pub style_loss: i32,
+    pub last_mistake: Option<i32>,
+    pub style_applied: bool,
     lmr_table: Vec<i16>,
     window: Option<Window>,
 }
@@ -42,6 +45,7 @@ impl Task {
         options: Options,
         limits: SearchLimits,
         allowed: &[Move],
+        style_loss: i32,
     ) -> Result<Self, EngineError> {
         let root = *game.board();
         let outcome = game.outcome();
@@ -84,6 +88,9 @@ impl Task {
             root_moves,
             scope: root.key().full().rotate_left(33)
                 ^ (options.model(&root) as u64 + 1).wrapping_mul(0xd6e8_feb8_6659_fd93),
+            style_loss,
+            last_mistake: None,
+            style_applied: false,
             lmr_table: Self::lmr_table_for(options.tuning()),
             window: None,
         })
@@ -282,7 +289,7 @@ mod tests {
     #[test]
     fn restricted_root_bounds_never_enter_the_full_position_cache() -> Result<(), Box<dyn Error>> {
         let game = Game::start()?;
-        let mut task = Task::new(&game, Options::default(), SearchLimits::default(), &[])?;
+        let mut task = Task::new(&game, Options::default(), SearchLimits::default(), &[], 0)?;
         let mut cache = Cache::new(1)?;
         task.start_pass();
         let mut frame = task.frames.pop().ok_or(EngineError::InternalState)?;
@@ -304,6 +311,7 @@ mod tests {
             Options::default(),
             SearchLimits::default(),
             &[root_move],
+            0,
         )?;
         task.start_pass();
         let mut parent = task.frames.pop().ok_or(EngineError::InternalState)?;

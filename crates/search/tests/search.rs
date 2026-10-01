@@ -78,7 +78,11 @@ fn node_caps_and_immediate_stops_keep_a_legal_fallback() -> Result<(), Box<dyn E
     assert_eq!(report.status, SearchStatus::Finished(Completion::Nodes));
     let mv = report.best_move.ok_or("missing fallback")?;
     assert!(engine.game().board().legal_moves().contains(&mv));
-    engine.start(SearchLimits::default())?;
+    engine.start(SearchLimits {
+        depth: 64,
+        nodes: u64::MAX,
+    })?;
+    engine.step(64)?;
     engine.stop();
     assert_eq!(
         engine.report().status,
@@ -338,5 +342,55 @@ fn aspiration_retries_remain_quantum_invariant() -> Result<(), Box<dyn Error>> {
     let second = finish(&mut b, 512)?;
     assert_eq!(first, second);
     assert_eq!(first.depth, 5);
+    Ok(())
+}
+
+#[test]
+fn human_play_policy_is_deterministic_and_weakens_play() -> Result<(), Box<dyn Error>> {
+    let mut engine = Engine::new()?;
+    let mut options = Options::default();
+    options.set_mode(Mode::Balanced);
+    options.set_elo(500)?;
+    options.set_multi_pv(5)?;
+    engine.configure(options)?;
+    let mut moves = Vec::new();
+    for _ in 0..4 {
+        engine.start(SearchLimits {
+            depth: 6,
+            nodes: 200_000,
+        })?;
+        let report = finish(&mut engine, 128)?;
+        let mv = report.best_move.ok_or("missing move")?;
+        engine.play_uci(&mv.to_uci(false))?;
+        moves.push(mv.to_uci(false));
+    }
+    // Same seed and budget rules reproduce the identical game.
+    let mut clone = Engine::new()?;
+    clone.configure(options)?;
+    for expected in &moves {
+        clone.start(SearchLimits {
+            depth: 6,
+            nodes: 200_000,
+        })?;
+        let report = finish(&mut clone, 128)?;
+        let mv = report.best_move.ok_or("missing move")?;
+        assert_eq!(mv.to_uci(false), *expected);
+        clone.play_uci(expected)?;
+    }
+    // Full strength stays at the best line.
+    let mut full = Engine::new()?;
+    let mut full_options = Options::default();
+    full_options.set_multi_pv(5)?;
+    full.configure(full_options)?;
+    full.start(SearchLimits {
+        depth: 3,
+        nodes: 20_000,
+    })?;
+    let report = finish(&mut full, 128)?;
+    let Some(best) = report.variations.first() else {
+        return Err("missing variation".into());
+    };
+    let chosen = report.best_move.ok_or("missing move")?;
+    assert_eq!(chosen, best.moves[0]);
     Ok(())
 }
