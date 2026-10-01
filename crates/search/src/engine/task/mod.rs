@@ -459,7 +459,7 @@ mod tests {
     fn aggressive_phase_switching_and_sacrifice_history_adjust_evaluation()
     -> Result<(), Box<dyn Error>> {
         let mut game = Game::start()?;
-        for uci in ["e2e4", "e7e5", "g1f3", "b8c6", "f3e5", "c6e5", "d2d4"] {
+        for uci in ["e2e4", "e7e5", "g1f3", "b8c6", "f3e5", "c6e5", "d2d4", "d7d6"] {
             game.play_uci(uci, false)?;
         }
         let balance = game.board().material(game.board().side_to_move())
