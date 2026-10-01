@@ -14,14 +14,26 @@ pub enum Behavior {
     ReverseFutility,
     QuietPruning,
     LateReductions,
+    Razoring,
+    InternalReductions,
+    ExchangePruning,
+    HistoryPruning,
+    Probcut,
+    SingularExtensions,
 }
 impl Behavior {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 11] = [
         Self::Aspiration,
         Self::NullMove,
         Self::ReverseFutility,
         Self::QuietPruning,
         Self::LateReductions,
+        Self::Razoring,
+        Self::InternalReductions,
+        Self::ExchangePruning,
+        Self::HistoryPruning,
+        Self::Probcut,
+        Self::SingularExtensions,
     ];
     #[must_use]
     pub const fn name(self) -> &'static str {
@@ -31,6 +43,12 @@ impl Behavior {
             Self::ReverseFutility => "reverse-futility",
             Self::QuietPruning => "quiet-pruning",
             Self::LateReductions => "late-reductions",
+            Self::Razoring => "razoring",
+            Self::InternalReductions => "internal-reductions",
+            Self::ExchangePruning => "exchange-pruning",
+            Self::HistoryPruning => "history-pruning",
+            Self::Probcut => "probcut",
+            Self::SingularExtensions => "singular-extensions",
         }
     }
     pub fn parse(name: &str) -> Result<Self, EngineError> {
@@ -322,13 +340,13 @@ impl Parameter {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SearchTuning {
     values: [i32; 31],
-    enabled: [bool; 5],
+    enabled: [bool; 11],
 }
 impl Default for SearchTuning {
     fn default() -> Self {
         Self {
             values: Parameter::SPECS.map(|spec| spec.default),
-            enabled: [true; 5],
+            enabled: [true; 11],
         }
     }
 }

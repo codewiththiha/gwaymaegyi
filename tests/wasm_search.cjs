@@ -18,7 +18,7 @@ const {pathToFileURL} = require('node:url');
   assert.deepEqual(capabilities.skillLevels, nominal.map((elo,index) => ({level:index+1,elo})).concat({level:21,elo:0}));
   assert.equal(capabilities.liveLimits, true);
   const controls=JSON.parse(wasm.search_controls_json());
-  assert.ok(controls.behaviors.includes('aspiration'));
+  assert.deepEqual(controls.behaviors, ['aspiration','null-move','reverse-futility','quiet-pruning','late-reductions','razoring','internal-reductions','exchange-pruning','history-pruning','probcut','singular-extensions']);
   assert.equal(controls.parameters.length,31);
     assert.ok(controls.parameters.some((item) => item.name === 'SEDepth'));
     assert.ok(controls.parameters.some((item) => item.name === 'LMRBase'));

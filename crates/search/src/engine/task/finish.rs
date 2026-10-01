@@ -211,7 +211,7 @@ impl Task {
         }
     }
 
-    /// Reference human-play policy: opening diversity, an accumulated mistake
+    /// Human-style selection: opening diversity, an accumulated mistake
     /// budget, and sacrifice preference, all deterministic under the seed.
     fn choose(&mut self) -> usize {
         if self.options.mode() == Mode::Analysis

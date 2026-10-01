@@ -66,7 +66,8 @@ impl Task {
         if let Some(result) = Self::cached(frame) {
             return Action::Complete(result);
         }
-        if (frame.flags.pv_node() || frame.flags.cutnode())
+        if tuning.enabled(Behavior::InternalReductions)
+            && (frame.flags.pv_node() || frame.flags.cutnode())
             && frame.tt_move.is_none()
             && !frame.flags.in_check()
             && frame.excluded.is_none()
@@ -74,7 +75,7 @@ impl Task {
         {
             frame.depth -= 1;
         }
-        if tuning.enabled(Behavior::QuietPruning)
+        if tuning.enabled(Behavior::Razoring)
             && !frame.flags.pv_node()
             && !frame.flags.in_check()
             && frame.depth > 0
@@ -254,7 +255,8 @@ impl Task {
             return false;
         };
         let _ = tt;
-        index == 0
+        tuning.enabled(Behavior::SingularExtensions)
+            && index == 0
             && frame.ply > 0
             && frame.ply < self.iteration.saturating_mul(2)
             && frame.depth > 0
@@ -358,7 +360,8 @@ impl Task {
                     < frame.alpha;
             if late || futile {
                 frame.flags.set_skip_quiet(true);
-            } else if lmr_depth < tuning.get(Parameter::HistPruneDepth)
+            } else if tuning.enabled(Behavior::HistoryPruning)
+                && lmr_depth < tuning.get(Parameter::HistPruneDepth)
                 && cache.history.quiet_only(&frame.board, chess_move) < -4096 * lmr_depth
             {
                 return true;
@@ -367,7 +370,8 @@ impl Task {
         if frame.flags.skip_quiet() && (item.is_quiet || item.score < 0) {
             return true;
         }
-        if !gives_check
+        if tuning.enabled(Behavior::ExchangePruning)
+            && !gives_check
             && frame.ply > 0
             && frame.depth > 0
             && frame.best > -INFINITY
@@ -390,7 +394,8 @@ impl Task {
 
     /// Probcut beta for a SEE-passing capture on a cutnode, if eligible.
     fn probcut(frame: &Frame, item: &ScoredMove, tuning: crate::SearchTuning) -> Option<i32> {
-        if !(frame.flags.cutnode()
+        if !(tuning.enabled(Behavior::Probcut)
+            && frame.flags.cutnode()
             && frame.depth > 0
             && item.is_capture
             && !frame.flags.in_check()

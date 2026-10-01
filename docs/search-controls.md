@@ -9,8 +9,9 @@ SearchTuning is a validated value owned by each Options/Engine instance. There i
 no mutable global parameter registry. Parameter::SPECS describes only implemented
 controls; unsupported algorithms are not advertised as tunable placeholders.
 
-The current behavior switches are aspiration, null-move, reverse-futility,
-quiet-pruning, and late-reductions. Numeric parameters cover aspiration depth/window,
+The applied behavior switches are aspiration, null-move, reverse-futility,
+quiet-pruning, late-reductions, razoring, internal-reductions, exchange-pruning,
+history-pruning, probcut, and singular-extensions. Numeric parameters cover aspiration depth/window,
 null-move depth/reduction, reverse futility, quiet futility/LMP, reduction depth,
 and history updates. Invalid names or out-of-range values leave state unchanged.
 
@@ -34,15 +35,15 @@ caps and stop/reset remain effective during retries.
 
 ## Human-like play
 
-Approximate-strength selections use the reference human-play policy with
-deterministic substitutes for its random device:
+Approximate-strength selections use an accumulated human-style policy with
+seeded, reproducible choices:
 
 - Opening diversity: before move 7, a line within 25 cp of the best that still
   leads may replace it when a seeded draw matches its index.
 - Mistake budget: from move 7 on, the first line whose deficit is positive and
   below the accumulated budget plus 10 cp may be chosen; the chosen deficit is
-  subtracted from the budget and a per-move budget of 120 minus a quarter
-  centipawn per nominal Elo is added.
+  subtracted from the budget and a per-move budget of 120 minus nominal Elo divided by 25
+  centipawns is added.
 - Sacrifice preference: a leading line that already trades material may replace
   the choice at progressively wider material deficits.
 

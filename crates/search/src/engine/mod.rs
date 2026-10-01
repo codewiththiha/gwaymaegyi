@@ -170,7 +170,7 @@ impl Engine {
     }
 
     /// Carry the finished search's style state forward and update the
-    /// accumulated mistake budget once per move, as in the reference policy.
+    /// accumulated mistake budget once per move, under the selected playing policy.
     fn apply_style_budget(&mut self) {
         let Some(task) = self.task.as_mut() else {
             return;

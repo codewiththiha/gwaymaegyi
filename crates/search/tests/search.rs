@@ -394,3 +394,29 @@ fn human_play_policy_is_deterministic_and_weakens_play() -> Result<(), Box<dyn E
     assert_eq!(chosen, best.moves[0]);
     Ok(())
 }
+
+#[test]
+fn all_algorithm_behaviors_are_discoverable_and_instance_owned() -> Result<(), Box<dyn Error>> {
+    use gwaymaegyi_search::{Behavior, SearchTuning};
+    assert_eq!(Behavior::ALL.len(), 11);
+    let original = SearchTuning::default();
+    let mut changed = original;
+    for behavior in Behavior::ALL {
+        assert_eq!(Behavior::parse(behavior.name())?, behavior);
+        changed.set_behavior(behavior, false);
+        assert!(!changed.enabled(behavior));
+        assert!(original.enabled(behavior));
+    }
+    let mut options = Options::default();
+    options.set_tuning(changed);
+    let mut engine = Engine::new()?;
+    engine.configure(options)?;
+    engine.start(SearchLimits {
+        depth: 2,
+        nodes: 20_000,
+    })?;
+    let report = finish(&mut engine, 128)?;
+    assert_eq!(report.depth, 2);
+    assert!(report.best_move.is_some());
+    Ok(())
+}
