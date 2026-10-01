@@ -47,6 +47,8 @@ jobs:
         run: python3 scripts/check_commit.py
       - name: Check portable repository paths
         run: python3 scripts/check_paths.py
+      - name: Check contributor code summaries
+        run: python3 scripts/check_headers.py
       - name: Test Python tooling
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
       - name: Check JavaScript syntax

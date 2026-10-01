@@ -8,6 +8,8 @@ Start with [README.md](README.md), [architecture](docs/architecture.md), and
 - Rust edition 2024, current stable toolchain. Default rustfmt; no custom config.
 - Keep chess rules and position state platform-independent. Native and WASM
   adapters use the same core. Do not add OS APIs or threads to the core.
+- Start code files with a brief responsibility summary; use `//!` module docs
+  in Rust and the language's normal convention elsewhere.
 - Split modules by ownership and responsibility. Prefer small concrete types;
   introduce abstractions only for a current requirement.
 - Keep fields private when they enforce invariants. Use typed domain values,
