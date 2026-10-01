@@ -40,6 +40,10 @@ fn invalid_commands_return_errors() {
         &["perft", "255"],
         &["fen"],
         &["fen", "bad"],
+        &["convert"],
+        &["convert", "unknown", "in.bin", "out.txt"],
+        &["filter"],
+        &["filter", "unknown", "in.txt"],
     ] {
         assert!(output(args).is_err());
     }
@@ -50,5 +54,40 @@ fn moves_and_fen_use_the_shared_board() -> Result<(), Box<dyn Error>> {
     assert_eq!(output(&["moves"])?.split_whitespace().count(), 20);
     let fen = "4k3/8/8/8/8/8/8/4K3 w - - 0 1";
     assert_eq!(output(&["fen", fen])?, format!("{fen}\n"));
+    Ok(())
+}
+
+#[test]
+fn convert_and_filter_subcommands_round_trip_records() -> Result<(), Box<dyn Error>> {
+    let dir = std::env::temp_dir();
+    let pid = std::process::id();
+    let text_in = dir.join(format!("gwaymaegyi-cli-in-{pid}.txt"));
+    let bin_path = dir.join(format!("gwaymaegyi-cli-packed-{pid}.bin"));
+    let text_out = dir.join(format!("gwaymaegyi-cli-out-{pid}.txt"));
+    let sample = concat!(
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 | 15 | 0.5\n",
+        "r1bqkbnr/pppppppp/2n5/8/4P3/8/PPPP1PPP/RNBQK1NR w KQkq - 0 1 | 40 | 1.0\n",
+    );
+    std::fs::write(&text_in, sample)?;
+
+    let text_in_str = text_in.to_string_lossy().into_owned();
+    let bin_str = bin_path.to_string_lossy().into_owned();
+    let text_out_str = text_out.to_string_lossy().into_owned();
+
+    assert_eq!(
+        output(&["convert", "encode", &text_in_str, &bin_str])?,
+        "encoded 2 records\n"
+    );
+    assert_eq!(
+        output(&["convert", "decode", &bin_str, &text_out_str])?,
+        "decoded 2 records\n"
+    );
+    let filtered = output(&["filter", "material-sacrifice", &text_in_str])?;
+    assert_eq!(filtered.lines().count(), 1);
+    assert!(filtered.contains("| 40 | 1.0"));
+
+    let _ = std::fs::remove_file(text_in);
+    let _ = std::fs::remove_file(bin_path);
+    let _ = std::fs::remove_file(text_out);
     Ok(())
 }

@@ -133,3 +133,28 @@ pub fn search_controls_json() -> String {
         .join(",");
     format!("{{\"behaviors\":[{behaviors}],\"parameters\":[{parameters}]}}")
 }
+
+/// Evaluates whether a single training line matches one of the 11 position filters.
+#[wasm_bindgen]
+pub fn filter_training_line(line: &str, filter: &str) -> Result<bool, JsError> {
+    let kind = gwaymaegyi_search::FilterKind::parse(filter)
+        .ok_or_else(|| JsError::new("unknown position filter"))?;
+    let record: gwaymaegyi_search::TrainingRecord = line.parse().map_err(js_error)?;
+    Ok(kind.matches(&record))
+}
+
+/// Packs a single text training line into a 32-byte binary bullet record.
+#[wasm_bindgen]
+pub fn encode_training_line(line: &str) -> Result<Vec<u8>, JsError> {
+    let record: gwaymaegyi_search::TrainingRecord = line.parse().map_err(js_error)?;
+    let packed = gwaymaegyi_search::BulletRecord::from_training_record(&record).map_err(js_error)?;
+    Ok(packed.to_bytes().to_vec())
+}
+
+/// Unpacks a 32-byte binary bullet record into a text training line.
+#[wasm_bindgen]
+pub fn decode_bullet_record(bytes: &[u8]) -> Result<String, JsError> {
+    let packed = gwaymaegyi_search::BulletRecord::from_bytes(bytes).map_err(js_error)?;
+    let record = packed.to_training_record().map_err(js_error)?;
+    Ok(record.to_string())
+}

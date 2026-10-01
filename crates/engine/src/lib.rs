@@ -13,8 +13,10 @@ pub use cli::run;
 pub use tablebase::NativeTablebases;
 
 pub use gwaymaegyi_search::{
-    Engine, EngineError, Mode, Options, SearchLimits, SearchReport, SearchStatus, SkillLevel,
-    Strength, TablebaseProbe, TablebaseRoot, TablebaseWdl,
+    BULLET_RECORD_BYTES, BulletRecord, DatasetError, Engine, EngineError, FilterKind, GameResult,
+    Mode, Options, SearchLimits, SearchReport, SearchStatus, SkillLevel, Strength, TablebaseProbe,
+    TablebaseRoot, TablebaseWdl, TrainingRecord, decode_bullet_records, encode_bullet_records,
+    filter_lines,
 };
 #[cfg(not(target_family = "wasm"))]
 pub use uci::run_uci;

@@ -1,6 +1,7 @@
 //! Deterministic cooperative search and playing controls for native/WASM hosts.
 
 mod config;
+mod dataset;
 mod engine;
 mod error;
 mod report;
@@ -9,6 +10,10 @@ mod tablebase;
 mod tuning;
 
 pub use config::{Mode, Options, SearchLimits};
+pub use dataset::{
+    BULLET_RECORD_BYTES, BulletRecord, DatasetError, FilterKind, GameResult, TrainingRecord,
+    decode_bullet_records, encode_bullet_records, filter_lines,
+};
 pub use engine::Engine;
 pub use error::EngineError;
 pub use report::{Completion, PrincipalVariation, SearchReport, SearchStatus};
