@@ -142,7 +142,9 @@ impl Task {
     }
 
     fn lmr_reduction(&self, depth: i16, index: usize) -> i16 {
-        let row = usize::try_from(depth).unwrap_or(0).min(usize::from(crate::MAX_DEPTH));
+        let row = usize::try_from(depth)
+            .unwrap_or(0)
+            .min(usize::from(crate::MAX_DEPTH));
         let columns = usize::from(LMR_MOVE_COUNT);
         self.lmr_table[row * columns + index.min(columns - 1)]
     }
@@ -495,11 +497,17 @@ mod tests {
     #[test]
     fn native_reductions_cover_the_full_depth_and_move_ranges() -> Result<(), Box<dyn Error>> {
         let game = Game::start()?;
-        let task = Task::new(&game, Options::default(), SearchLimits::full(), &[], 0, None)?;
+        let task = Task::new(
+            &game,
+            Options::default(),
+            SearchLimits::full(),
+            &[],
+            0,
+            None,
+        )?;
         assert_eq!(task.lmr_table.len(), 128 * 256);
         assert!(task.lmr_reduction(127, 255) > task.lmr_reduction(64, 64));
         assert_eq!(task.lmr_reduction(200, 400), task.lmr_reduction(127, 255));
         Ok(())
     }
-
 }

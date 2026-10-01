@@ -409,8 +409,8 @@ impl Worker {
         let roots: Vec<_> = go.roots.iter().map(String::as_str).collect();
         let result = (|| {
             for worker_id in 1..self.options.threads {
-                let mut helper = Engine::with_options(base_options)
-                    .map_err(|error| error.to_string())?;
+                let mut helper =
+                    Engine::with_options(base_options).map_err(|error| error.to_string())?;
                 helper.set_worker_id(worker_id);
                 helper.set_tablebase(
                     self.tablebases

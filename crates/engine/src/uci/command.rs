@@ -131,10 +131,20 @@ mod tests {
 
     #[test]
     fn diagnostics_and_search_accept_the_maximum_native_depth() {
-        assert!(matches!(Command::parse("bench 127 1"), Command::Bench { depth: 127, count: 1 }));
+        assert!(matches!(
+            Command::parse("bench 127 1"),
+            Command::Bench {
+                depth: 127,
+                count: 1
+            }
+        ));
         assert!(matches!(Command::parse("bench 128 1"), Command::Invalid(_)));
-        assert!(matches!(Command::parse("go depth 127"), Command::Go(go) if go.limits.depth == 127));
-        assert!(matches!(Command::parse("go depth 128"), Command::Invalid(_)));
+        assert!(
+            matches!(Command::parse("go depth 127"), Command::Go(go) if go.limits.depth == 127)
+        );
+        assert!(matches!(
+            Command::parse("go depth 128"),
+            Command::Invalid(_)
+        ));
     }
-
 }

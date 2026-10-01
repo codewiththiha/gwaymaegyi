@@ -13,7 +13,10 @@ fn request(options: Options) -> AnalysisRequest {
         moves: Vec::new(),
         roots: Vec::new(),
         options,
-        limits: SearchLimits { depth: 1, nodes: 20_000 },
+        limits: SearchLimits {
+            depth: 1,
+            nodes: 20_000,
+        },
         tablebase: None,
     }
 }
@@ -46,7 +49,8 @@ fn batch_hash_budget_is_not_capped_at_256_mib() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-fn large_datagen_runs_use_native_ranges_and_cancel_before_allocating() -> Result<(), Box<dyn Error>> {
+fn large_datagen_runs_use_native_ranges_and_cancel_before_allocating() -> Result<(), Box<dyn Error>>
+{
     let mut config = DatagenConfig {
         positions: 100_001,
         threads: MAX_THREADS,

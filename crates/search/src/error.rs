@@ -32,7 +32,11 @@ impl fmt::Display for EngineError {
             Self::InvalidSkill => "skill level must be 1 through 21; 21 selects full strength",
             Self::NoActiveSearch => "a running search is required to update limits",
             Self::InvalidHash => {
-                return write!(out, "hash size must be between 1 and {} MiB", crate::MAX_HASH_MIB);
+                return write!(
+                    out,
+                    "hash size must be between 1 and {} MiB",
+                    crate::MAX_HASH_MIB
+                );
             }
             Self::InvalidMultiPv => {
                 return write!(out, "MultiPV must be between 1 and {}", crate::MAX_MULTI_PV);
@@ -45,7 +49,11 @@ impl fmt::Display for EngineError {
                 );
             }
             Self::InvalidSlice => {
-                return write!(out, "slice budget must be between 1 and {} work units", crate::MAX_WORK);
+                return write!(
+                    out,
+                    "slice budget must be between 1 and {} work units",
+                    crate::MAX_WORK
+                );
             }
             Self::InvalidPosition(reason) | Self::InvalidMove(reason) => reason,
             Self::Resources => "engine memory allocation failed",

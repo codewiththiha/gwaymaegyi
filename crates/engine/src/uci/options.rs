@@ -152,8 +152,8 @@ mod tests {
     }
 
     #[test]
-    fn native_protocol_accepts_maxima_and_rejects_overflow_atomically()
-    -> Result<(), Box<dyn Error>> {
+    fn native_protocol_accepts_maxima_and_rejects_overflow_atomically() -> Result<(), Box<dyn Error>>
+    {
         let mut base = Options::default();
         base.set_hash_mib(1)?;
         let mut engine = Engine::with_options(base)?;
@@ -175,5 +175,4 @@ mod tests {
         assert!(IDENTIFICATION.contains("MultiPV type spin default 1 min 1 max 255"));
         Ok(())
     }
-
 }

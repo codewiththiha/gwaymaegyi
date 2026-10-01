@@ -91,13 +91,8 @@ pub fn analyze_batch(
                 let result = (|| {
                     let mut reports = Vec::new();
                     for index in (worker..requests.len()).step_by(count) {
-                        let report = run_single_worker(
-                            &requests[index],
-                            0,
-                            None,
-                            Some(failed_ref),
-                            cancel,
-                        )?;
+                        let report =
+                            run_single_worker(&requests[index], 0, None, Some(failed_ref), cancel)?;
                         reports.push((index, report));
                     }
                     Ok::<_, BatchError>(reports)
@@ -107,14 +102,12 @@ pub fn analyze_batch(
                 }
                 result
             });
-            match started {
-                Ok(handle) => handles.push(handle),
-                Err(_) => {
-                    failed.store(true, Ordering::Relaxed);
-                    failure = Some(BatchError::WorkerFailure);
-                    break;
-                }
-            }
+            let Ok(handle) = started else {
+                failed.store(true, Ordering::Relaxed);
+                failure = Some(BatchError::WorkerFailure);
+                break;
+            };
+            handles.push(handle);
         }
         let mut indexed = Vec::new();
         for handle in handles {
@@ -160,26 +153,19 @@ pub fn analyze_parallel(
             let shared_ref = Arc::clone(&shared);
             let done_ref = &done;
             let started = thread::Builder::new().spawn_scoped(scope, move || {
-                let result = run_single_worker(
-                    request,
-                    worker_id,
-                    Some(shared_ref),
-                    Some(done_ref),
-                    cancel,
-                );
+                let result =
+                    run_single_worker(request, worker_id, Some(shared_ref), Some(done_ref), cancel);
                 if worker_id == 0 || result.is_err() {
                     done_ref.store(true, Ordering::Relaxed);
                 }
                 result.map(|report| (worker_id, report))
             });
-            match started {
-                Ok(handle) => handles.push(handle),
-                Err(_) => {
-                    done.store(true, Ordering::Relaxed);
-                    failure = Some(BatchError::WorkerFailure);
-                    break;
-                }
-            }
+            let Ok(handle) = started else {
+                done.store(true, Ordering::Relaxed);
+                failure = Some(BatchError::WorkerFailure);
+                break;
+            };
+            handles.push(handle);
         }
         let mut primary: Option<SearchReport> = None;
         let mut total_nodes = 0_u64;

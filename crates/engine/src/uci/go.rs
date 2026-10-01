@@ -146,11 +146,15 @@ mod tests {
     fn native_clock_budgets_have_no_one_day_ceiling() -> Result<(), String> {
         let fixed = Go::parse(&["movetime", "18446744073709551615"])?;
         assert_eq!(fixed.time_control(0, 0), Some((u64::MAX, u64::MAX)));
-        let clock = Go::parse(&["wtime", "18446744073709551615", "winc", "18446744073709551615"])?;
+        let clock = Go::parse(&[
+            "wtime",
+            "18446744073709551615",
+            "winc",
+            "18446744073709551615",
+        ])?;
         let (max, opt) = clock.time_control(0, 20).ok_or("missing large clock")?;
         assert_eq!(max, 14_757_395_258_967_641_276);
         assert!(opt > 86_400_000 && opt <= max);
         Ok(())
     }
-
 }

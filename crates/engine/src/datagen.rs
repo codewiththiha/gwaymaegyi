@@ -169,7 +169,8 @@ pub fn generate_training_data(
     let mut base = Options::default();
     base.set_mode(Mode::Aggressive);
     base.set_chess960(config.chess960);
-    base.set_hash_mib(config.hash_mib).map_err(DatagenError::Engine)?;
+    base.set_hash_mib(config.hash_mib)
+        .map_err(DatagenError::Engine)?;
     if cancel.load(Ordering::Relaxed) {
         return Ok(Vec::new());
     }
@@ -197,7 +198,10 @@ fn run_generation(
     let next_game = AtomicUsize::new(0);
     let total_saved = AtomicUsize::new(0);
     let failed = AtomicBool::new(false);
-    let cancel = Cancellation { requested, failed: &failed };
+    let cancel = Cancellation {
+        requested,
+        failed: &failed,
+    };
     let worker_count = usize::from(config.threads).min(config.positions);
     thread::scope(|scope| {
         let mut handles = Vec::with_capacity(worker_count);
@@ -209,12 +213,15 @@ fn run_generation(
                 let result = (|| {
                     let mut engine = Engine::with_options(base).map_err(DatagenError::Engine)?;
                     let mut local_batches = Vec::new();
-                    while !cancel.requested() && saved_ref.load(Ordering::Relaxed) < config.positions {
+                    while !cancel.requested()
+                        && saved_ref.load(Ordering::Relaxed) < config.positions
+                    {
                         let game_id = next_game_ref.fetch_add(1, Ordering::Relaxed);
                         if game_id > config.positions.saturating_mul(64).max(256) {
                             break;
                         }
-                        let records = play_single_game(&mut engine, config, openings, game_id, cancel)?;
+                        let records =
+                            play_single_game(&mut engine, config, openings, game_id, cancel)?;
                         if !records.is_empty() {
                             saved_ref.fetch_add(records.len(), Ordering::Relaxed);
                             local_batches.push((game_id, records));
@@ -227,20 +234,20 @@ fn run_generation(
                 }
                 result
             });
-            match started {
-                Ok(handle) => handles.push(handle),
-                Err(_) => {
-                    failed.store(true, Ordering::Relaxed);
-                    failure = Some(DatagenError::WorkerFailure);
-                    break;
-                }
-            }
+            let Ok(handle) = started else {
+                failed.store(true, Ordering::Relaxed);
+                failure = Some(DatagenError::WorkerFailure);
+                break;
+            };
+            handles.push(handle);
         }
         let mut batches = Vec::new();
         for handle in handles {
             match handle.join() {
                 Ok(Ok(worker_batches)) => batches.extend(worker_batches),
-                Ok(Err(error)) => { failure.get_or_insert(error); }
+                Ok(Err(error)) => {
+                    failure.get_or_insert(error);
+                }
                 Err(_) => {
                     failed.store(true, Ordering::Relaxed);
                     failure.get_or_insert(DatagenError::WorkerFailure);
