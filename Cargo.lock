@@ -46,6 +46,8 @@ name = "gwaymaegyi-wasm"
 version = "0.1.0"
 dependencies = [
  "gwaymaegyi-core",
+ "gwaymaegyi-eval",
+ "gwaymaegyi-search",
  "wasm-bindgen",
 ]
 

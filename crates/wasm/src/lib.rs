@@ -2,7 +2,13 @@
 
 #![expect(
     clippy::missing_errors_doc,
-    reason = "Failure details use plain prose rather than Markdown sections."
+    reason = "Failure details mod session;
+mod snapshot;
+
+pub use session::Engine;
+pub use snapshot::EngineReport;
+
+use plain prose rather than Markdown sections."
 )]
 
 use gwaymaegyi_core::Board;
@@ -54,4 +60,46 @@ pub fn perft(fen: &str, depth: f64) -> Result<String, JsValue> {
 fn parse_board(fen: &str) -> Result<Board, JsValue> {
     fen.parse::<Board>()
         .map_err(|error| JsValue::from_str(&error.to_string()))
+}
+
+fn js_error(error: impl std::fmt::Display) -> JsError {
+    JsError::new(&error.to_string())
+}
+
+/// Raw quantized model units; engine reports use normalized centipawns instead.
+#[wasm_bindgen]
+pub fn raw_evaluate(fen: &str, model: &str, perspective: &str) -> Result<i32, JsError> {
+    let board: Board = fen.parse().map_err(js_error)?;
+    let model = match model {
+        "balanced" => gwaymaegyi_eval::Model::Balanced,
+        "endgame" => gwaymaegyi_eval::Model::Endgame,
+        "aggressive" => gwaymaegyi_eval::Model::Aggressive,
+        _ => {
+            return Err(JsError::new(
+                "model must be balanced, endgame, or aggressive",
+            ));
+        }
+    };
+    let color = match perspective {
+        "white" => gwaymaegyi_core::Color::White,
+        "black" => gwaymaegyi_core::Color::Black,
+        _ => return Err(JsError::new("perspective must be white or black")),
+    };
+    Ok(gwaymaegyi_eval::Accumulator::new(&board, model).score_for(color))
+}
+
+#[wasm_bindgen]
+#[must_use]
+pub fn capabilities_json() -> String {
+    let modes = gwaymaegyi_search::Mode::ALL
+        .into_iter()
+        .map(|mode| format!("\"{}\"", mode.as_str()))
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "{{\"version\":\"{}\",\"modes\":[{modes}],\"eloMin\":500,\"eloMax\":3000,\"eloCalibrated\":false,\"maxDepth\":{},\"maxMultiPv\":5,\"maxHashMiB\":64,\"maxWork\":65536,\"cooperativeSearch\":true,\"chess960\":true,\"simd128\":{}}}",
+        env!("CARGO_PKG_VERSION"),
+        gwaymaegyi_search::MAX_DEPTH,
+        cfg!(all(target_arch = "wasm32", target_feature = "simd128"))
+    )
 }

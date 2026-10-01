@@ -47,6 +47,9 @@ jobs:
         run: python3 scripts/check_paths.py
       - name: Test Python tooling
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Check JavaScript syntax
+        run: |
+          for file in web/*.mjs tests/*.cjs; do node --check "$file"; done
       - name: Check default Rust formatting
         run: |
           cargo fmt --all
@@ -85,6 +88,10 @@ jobs:
         run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
       - name: Test rules and public APIs
         run: cargo test --locked --workspace --all-targets --all-features
+      - name: Verify deterministic search snapshots
+        run: |
+          cargo run --locked -q -p gwaymaegyi-search --example emit_fixtures > "$RUNNER_TEMP/search.json"
+          python3 scripts/check_search_fixtures.py fixtures/search.json "$RUNNER_TEMP/search.json"
       - name: Check documentation
         run: cargo doc --locked --workspace --no-deps
       - name: Build native executable
@@ -108,7 +115,13 @@ jobs:
           retention-days: 7
 
   wasm:
-    name: WASM lint and runtime
+    name: WASM ${{ matrix.backend }} lint and runtime
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [portable, simd128]
+    env:
+      RUSTFLAGS: -Dwarnings ${{ matrix.backend == 'simd128' && '-Ctarget-feature=+simd128' || '-Ctarget-feature=-simd128' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -119,7 +132,7 @@ jobs:
         run: rustup toolchain install stable --profile minimal --component clippy --target wasm32-unknown-unknown --no-self-update
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: wasm
+          shared-key: wasm-${{ matrix.backend }}
           save-if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
       - name: Enforce WASM lints
         run: cargo clippy --locked -p gwaymaegyi-wasm --target wasm32-unknown-unknown --all-targets -- -D warnings
@@ -131,13 +144,22 @@ jobs:
         run: |
           wasm-bindgen target/wasm32-unknown-unknown/wasm-release/gwaymaegyi_wasm.wasm --target web --out-dir pkg/web
           wasm-bindgen target/wasm32-unknown-unknown/wasm-release/gwaymaegyi_wasm.wasm --target nodejs --out-dir pkg/node
+          cp web/*.mjs pkg/web/
+          cp LICENSE pkg/web/LICENSE
+          cp LICENSE pkg/node/LICENSE
+          cp assets/models/LICENSE pkg/web/MODEL-LICENSE
+          cp assets/models/LICENSE pkg/node/MODEL-LICENSE
       - name: Execute the compiled WASM module
-        run: node tests/wasm.cjs pkg/node/gwaymaegyi_wasm.js
+        run: |
+          node tests/wasm.cjs pkg/node/gwaymaegyi_wasm.js
+          node tests/wasm_search.cjs pkg/node/gwaymaegyi_wasm.js ${{ matrix.backend }}
+          node tests/worker.cjs pkg/node/gwaymaegyi_wasm.js
+          python3 -c 'import gzip,pathlib; p=pathlib.Path("pkg/web/gwaymaegyi_wasm_bg.wasm"); b=p.read_bytes(); print("WASM bytes:",len(b),"gzip bytes:",len(gzip.compress(b)))'
       - name: Attach WASM packages
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: gwaymaegyi-wasm-${{ github.sha }}
+          name: gwaymaegyi-wasm-${{ matrix.backend }}-${{ github.sha }}
           path: pkg/
           retention-days: 7
 
@@ -170,3 +192,9 @@ jobs:
           binary=target/debug/gwaymaegyi
           if [[ "$RUNNER_OS" == Windows ]]; then binary="$binary.exe"; fi
           python tests/uci_smoke.py "$binary"
+
+      - name: Verify portable search snapshots
+        shell: bash
+        run: |
+          cargo run --locked -q -p gwaymaegyi-search --example emit_fixtures > "$RUNNER_TEMP/search.json"
+          python scripts/check_search_fixtures.py fixtures/search.json "$RUNNER_TEMP/search.json"

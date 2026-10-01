@@ -12,6 +12,8 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 gwaymaegyi-core.workspace = true
+gwaymaegyi-eval.workspace = true
+gwaymaegyi-search.workspace = true
 wasm-bindgen.workspace = true
 
 [lints]
