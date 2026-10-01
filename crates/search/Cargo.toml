@@ -1,3 +1,5 @@
+# Cooperative search package shared by native and WASM adapters.
+
 [package]
 name = "gwaymaegyi-search"
 description = "Safe cooperative chess search and playing controls"

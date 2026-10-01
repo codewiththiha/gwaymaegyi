@@ -1,3 +1,6 @@
+//! Legal game history, draw claims, and automatic outcomes.
+//! Rejected moves leave both the board and repetition history intact.
+
 #![expect(
     clippy::missing_errors_doc,
     reason = "Errors are described in plain prose."

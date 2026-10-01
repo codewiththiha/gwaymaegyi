@@ -1,3 +1,5 @@
+// Test real WASM worker responsiveness, replacement, rollback, and stale-result suppression.
+
 const assert = require('node:assert/strict');
 const {Worker} = require('node:worker_threads');
 const path = require('node:path');

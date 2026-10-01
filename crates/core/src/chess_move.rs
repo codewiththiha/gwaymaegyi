@@ -1,3 +1,6 @@
+//! Typed move kinds, promotions, and standard/Chess960 UCI notation.
+//! Move construction remains restricted to the rules implementation.
+
 use crate::{PieceKind, Square};
 
 /// Only these four roles can result from a promotion.

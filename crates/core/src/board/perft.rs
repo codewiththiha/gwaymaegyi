@@ -1,3 +1,5 @@
+//! Legal-tree counting and root divides for rule verification, not playing search.
+
 use crate::{Board, Move};
 
 /// Counts legal leaf positions; depth zero includes the current position once.

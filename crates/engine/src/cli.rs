@@ -1,3 +1,5 @@
+//! Testable native utility commands with injected arguments and output.
+
 #![expect(
     clippy::missing_errors_doc,
     reason = "Failure details use plain prose rather than Markdown sections."

@@ -1,3 +1,5 @@
+//! Rule and input-boundary tests, including Chess960 and special moves.
+
 use std::error::Error;
 
 use gwaymaegyi_core::{Bitboard, Board, Color, START_FEN, Square};

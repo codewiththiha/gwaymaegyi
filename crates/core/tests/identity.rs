@@ -1,3 +1,5 @@
+//! Regression tests for position identity, repetition, claims, and terminal games.
+
 use gwaymaegyi_core::{Board, ClaimableDraw, Color, DrawReason, Game, Outcome, START_FEN};
 use std::error::Error;
 

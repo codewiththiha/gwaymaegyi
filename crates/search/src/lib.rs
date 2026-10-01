@@ -1,4 +1,4 @@
-//! Deterministic search advances in bounded slices without platform clocks or threads.
+//! Deterministic cooperative search and playing controls for native/WASM hosts.
 
 mod config;
 mod engine;

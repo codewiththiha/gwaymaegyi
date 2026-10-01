@@ -1,3 +1,5 @@
+//! UCI text decoding into typed commands; malformed requests remain recoverable.
+
 use super::go::Go;
 use gwaymaegyi_core::START_FEN;
 

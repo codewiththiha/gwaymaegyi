@@ -1,3 +1,4 @@
+"""Test portable repository paths and case-insensitive collision detection."""
 import sys
 import unittest
 from pathlib import Path

@@ -1,3 +1,5 @@
+# Workspace boundaries, shared dependencies, strict lints, and release profiles.
+
 [workspace]
 members = ["crates/core", "crates/eval", "crates/search", "crates/engine", "crates/wasm"]
 default-members = ["crates/engine"]

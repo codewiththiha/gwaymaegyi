@@ -1,4 +1,5 @@
-//! Portable rules with no clock, filesystem, or thread dependencies.
+//! Portable chess types, rules, game history, and perft APIs.
+//! This crate owns no clocks, files, threads, or search resources.
 
 mod bitboard;
 mod board;

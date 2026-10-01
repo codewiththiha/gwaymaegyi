@@ -1,3 +1,5 @@
+//! Iterative search task retaining its exact node stack across work slices.
+
 use crate::engine::{
     frame::{Action, CachePolicy, Frame, Stage},
     table::Cache,

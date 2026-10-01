@@ -1,3 +1,6 @@
+// Validate worker requests and schedule retained search continuations.
+// Job identities suppress stale callbacks after successful replacements.
+
 import {createScheduler} from './scheduler.mjs';
 
 const integer = (value, min, max, name) => {

@@ -1,3 +1,5 @@
+//! Square sets and deterministic bit scans for attacks and move generation.
+
 use crate::Square;
 
 /// A set of squares; iteration consumes the least significant square first.

@@ -1,3 +1,5 @@
+//! Validated squares, piece roles, colors, and their display/parsing conventions.
+
 use std::{fmt, str::FromStr};
 
 /// A piece's owner and the side to move.

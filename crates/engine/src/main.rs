@@ -1,4 +1,4 @@
-//! Native process boundary; chess rules live in the portable library.
+//! Process boundary selecting UCI or utility commands and mapping exit failures.
 
 use std::{
     env,

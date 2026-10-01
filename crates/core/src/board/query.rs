@@ -1,3 +1,6 @@
+//! Material, capture, clock, and dead-position queries.
+//! Null positions are synthetic search transitions, never game-history moves.
+
 use crate::{Board, Color, Move, MoveKind, PieceKind};
 
 impl Board {

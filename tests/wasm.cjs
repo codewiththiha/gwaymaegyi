@@ -1,3 +1,5 @@
+// Exercise compiled WASM rules and input boundaries through the generated Node bindings.
+
 'use strict';
 
 const assert = require('node:assert/strict');

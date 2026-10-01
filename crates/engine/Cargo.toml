@@ -1,3 +1,5 @@
+# Native UCI/utility executable and portable engine re-exports.
+
 [package]
 name = "gwaymaegyi"
 description = "Native command-line interface for the gwaymaegyi chess engine"

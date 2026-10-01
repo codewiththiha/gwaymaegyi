@@ -1,3 +1,4 @@
+"""Test read-only CI monitoring, bounded logs, retries, and credential redaction."""
 import contextlib
 import io
 import json

@@ -1,3 +1,5 @@
+//! Bounded, worker-owned score cache with depth, age, and mate-distance handling.
+
 use super::history::History;
 use crate::{EngineError, MATE_THRESHOLD};
 use gwaymaegyi_core::Move;

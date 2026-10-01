@@ -1,3 +1,6 @@
+//! Incremental and recomputed position keys with legal en passant identity.
+//! Counters are excluded from repetition identity.
+
 use crate::{Board, Color, Piece, PieceKind, PositionKey};
 
 impl Board {

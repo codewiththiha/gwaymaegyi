@@ -1,4 +1,4 @@
-//! Testable native commands; process-level input and output stay in the binary.
+//! Native utility/UCI entry points and re-exported portable engine APIs.
 
 mod cli;
 mod uci;

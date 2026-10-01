@@ -1,3 +1,5 @@
+//! Piece attack geometry and king-safety queries, independent of search state.
+
 use crate::{Bitboard, Board, Color, PieceKind, Square};
 
 const KNIGHT: [(i8, i8); 8] = [

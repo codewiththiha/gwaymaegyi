@@ -1,3 +1,5 @@
+//! Completed analysis snapshots, stop reasons, and checked mate-distance formatting.
+
 use gwaymaegyi_core::Move;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

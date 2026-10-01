@@ -1,3 +1,5 @@
+//! Worker-local quiet history and killers used only for move ordering.
+
 use crate::MAX_PLY;
 use gwaymaegyi_core::{Board, Move};
 

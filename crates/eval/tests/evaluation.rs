@@ -1,3 +1,5 @@
+//! Exact raw scores and incremental-versus-refresh evaluation regressions.
+
 use gwaymaegyi_core::{Board, Color, START_FEN};
 use gwaymaegyi_eval::{Accumulator, Model};
 use std::error::Error;

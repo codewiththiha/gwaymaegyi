@@ -1,4 +1,4 @@
-//! Immutable quantized weights and worker-owned incremental evaluation.
+//! Immutable quantized models and incremental evaluation without platform intrinsics.
 
 mod accumulator;
 mod model;

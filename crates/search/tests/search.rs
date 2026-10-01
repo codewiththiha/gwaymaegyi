@@ -1,3 +1,5 @@
+//! Search determinism, limits, legal output, policy controls, and rollback regressions.
+
 use gwaymaegyi_core::{Game, START_FEN};
 use gwaymaegyi_search::{
     Completion, Engine, Mode, Options, SearchLimits, SearchReport, SearchStatus,

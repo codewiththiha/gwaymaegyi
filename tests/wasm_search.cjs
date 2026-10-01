@@ -1,3 +1,5 @@
+// Compare actual WASM evaluation/search with native fixtures and transaction guarantees.
+
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');

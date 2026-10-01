@@ -1,3 +1,6 @@
+//! Board storage and legal successor APIs.
+//! Mailbox, bitboards, and position keys must remain synchronized.
+
 mod attacks;
 mod castling;
 mod fen;

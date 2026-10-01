@@ -1,3 +1,5 @@
+//! UCI option validation and protocol discovery, committed atomically to the engine.
+
 use gwaymaegyi_search::Engine;
 
 #[derive(Debug)]

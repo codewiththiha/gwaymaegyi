@@ -1,3 +1,6 @@
+//! Stateful WASM controls delegating to the portable engine.
+//! Owned reports are separate views; JavaScript must release them after copying.
+
 #![expect(
     clippy::missing_errors_doc,
     reason = "Binding failures are exposed as JavaScript errors."

@@ -1,3 +1,5 @@
+//! Standard legal-tree fixtures that detect move-generation regressions.
+
 use std::error::Error;
 
 use gwaymaegyi_core::{Board, START_FEN, perft};

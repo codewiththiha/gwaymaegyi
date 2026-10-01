@@ -1,3 +1,4 @@
+"""Test Conventional Commit validation and subject/body boundaries."""
 import sys
 import unittest
 from pathlib import Path

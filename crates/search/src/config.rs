@@ -1,3 +1,5 @@
+//! Validated playing policies and search budgets, separate from host scheduling.
+
 #![expect(
     clippy::missing_errors_doc,
     reason = "Validation failures are documented in plain prose."

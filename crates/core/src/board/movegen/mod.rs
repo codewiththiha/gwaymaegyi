@@ -1,3 +1,5 @@
+//! Candidate generation and king-safety filtering into validated successors.
+
 mod pawns;
 
 use super::attacks::piece_attacks;

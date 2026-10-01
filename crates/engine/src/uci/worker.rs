@@ -1,3 +1,6 @@
+//! Single-owner native search actor processing commands between bounded slices.
+//! Only this adapter owns wall-clock deadlines and protocol output.
+
 use super::{
     command::Command,
     go::{Go, PlayState},

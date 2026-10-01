@@ -1,3 +1,5 @@
+//! Owned WASM report getters with lossless node counts and serialized variations.
+
 use gwaymaegyi_search::{Completion, SearchReport, SearchStatus};
 use wasm_bindgen::prelude::*;
 

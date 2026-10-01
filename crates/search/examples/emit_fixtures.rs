@@ -1,3 +1,5 @@
+//! Emit deterministic native search snapshots for cross-platform/WASM verification.
+
 use gwaymaegyi_core::START_FEN;
 use gwaymaegyi_search::{Completion, Engine, Mode, SearchLimits, SearchStatus};
 use std::{

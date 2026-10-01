@@ -1,3 +1,5 @@
+//! Bounded-channel UCI session orchestration with explicit input/output ownership.
+
 #![expect(
     clippy::missing_errors_doc,
     reason = "I/O failures are documented in plain prose."

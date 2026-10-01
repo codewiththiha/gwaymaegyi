@@ -1,3 +1,5 @@
+//! Injected UCI transcripts covering diagnostics, handshakes, and stop fallbacks.
+
 use gwaymaegyi::run_uci;
 use std::{error::Error, io::Cursor};
 

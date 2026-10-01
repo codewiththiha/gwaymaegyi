@@ -1,3 +1,5 @@
+//! Pawn advances, captures, en passant, and the four legal promotion choices.
+
 use crate::{Board, Move, MoveKind, Piece, PieceKind, Promotion, Square};
 
 fn append(moves: &mut Vec<Move>, from: Square, to: Square) {

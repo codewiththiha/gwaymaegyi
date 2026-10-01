@@ -1,3 +1,5 @@
+//! Position-owned neural accumulators with safe incremental feature deltas.
+
 use crate::{HIDDEN, Model};
 use gwaymaegyi_core::{Board, Color};
 

@@ -1,3 +1,5 @@
+// Load compiled Node WASM in worker_threads using the browser SDK runtime.
+
 const {parentPort, workerData} = require('node:worker_threads');
 const {pathToFileURL} = require('node:url');
 const path = require('node:path');

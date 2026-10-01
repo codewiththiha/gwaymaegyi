@@ -1,3 +1,5 @@
+// Measure warmed WASM searches with fresh engines; timings are deployment diagnostics.
+
 const {performance}=require('node:perf_hooks');
 const fs=require('node:fs');
 const w=require(process.argv[2]);

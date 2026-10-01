@@ -1,3 +1,5 @@
+# Quantized neural evaluation package with immutable bundled models.
+
 [package]
 name = "gwaymaegyi-eval"
 description = "Portable quantized neural evaluation"

@@ -1,3 +1,5 @@
+//! Node entry, terminal checks, pruning, and child-search scheduling.
+
 use super::Task;
 use crate::engine::{
     frame::{Action, CachePolicy, Frame, NodeResult, Pending, Probe, Stage},

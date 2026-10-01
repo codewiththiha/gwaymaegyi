@@ -1,3 +1,5 @@
+//! Child-result delivery, re-search decisions, and completed root variation selection.
+
 use super::Task;
 use crate::engine::{
     frame::{Action, Frame, NodeResult, Probe, Stage},

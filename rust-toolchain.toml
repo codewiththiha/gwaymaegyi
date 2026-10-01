@@ -1,3 +1,5 @@
+# Current stable Rust tools and the supported WASM compilation target.
+
 [toolchain]
 channel = "stable"
 profile = "minimal"

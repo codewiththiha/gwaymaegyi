@@ -1,3 +1,5 @@
+//! Protocol-safe scores, principal variations, best moves, and ponder hints.
+
 use gwaymaegyi_search::SearchReport;
 
 pub(super) fn best(report: &SearchReport, chess960: bool, ponder: bool) -> String {

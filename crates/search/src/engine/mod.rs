@@ -1,3 +1,6 @@
+//! Portable controller owning game, options, cache, and an active continuation.
+//! Validation precedes state replacement; hosts decide when to step or stop.
+
 #![expect(
     clippy::missing_errors_doc,
     reason = "Errors are documented in plain prose."

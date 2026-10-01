@@ -1,3 +1,5 @@
+# Parallel formatting/native/WASM verification with optional Windows/macOS checks.
+
 name: CI
 
 on:

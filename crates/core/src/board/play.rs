@@ -1,3 +1,6 @@
+//! Legal notation resolution and trusted position transitions.
+//! Special moves update board storage, rights, clocks, and keys together.
+
 #![expect(
     clippy::missing_errors_doc,
     reason = "Failure details use plain prose rather than Markdown sections."

@@ -1,4 +1,5 @@
-//! Browser bindings share the native rules without threads or filesystem access.
+//! WASM rules, raw evaluation, capabilities, and stateful engine exports.
+//! The same portable implementation powers both browser and native search.
 
 #![expect(
     clippy::missing_errors_doc,

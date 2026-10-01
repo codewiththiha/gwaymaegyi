@@ -1,3 +1,5 @@
+# Portable rules and game-state package; platform adapters are separate.
+
 [package]
 name = "gwaymaegyi-core"
 description = "Portable chess rules and position types"

@@ -1,3 +1,5 @@
+//! Rook-origin castling rights and legal paths, including Chess960 overlap cases.
+
 use crate::{Bitboard, Board, Color, Move, MoveKind, Piece, PieceKind, Square};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

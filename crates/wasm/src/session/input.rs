@@ -1,3 +1,5 @@
+//! Checked JavaScript number/decimal conversion without silent integer wrapping.
+
 use gwaymaegyi_search::SearchLimits;
 use std::str::FromStr;
 use wasm_bindgen::JsError;

@@ -1,3 +1,5 @@
+# Browser/Node bindings and WASM library packaging.
+
 [package]
 name = "gwaymaegyi-wasm"
 description = "WebAssembly interface for the gwaymaegyi chess engine"

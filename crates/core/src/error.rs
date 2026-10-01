@@ -1,3 +1,5 @@
+//! Typed FEN, square, and move failures shared by all adapters.
+
 use std::{error::Error, fmt};
 
 use crate::Color;

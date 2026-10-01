@@ -1,3 +1,5 @@
+//! Embedded model layout, perspective features, and safe little-endian weight decoding.
+
 use gwaymaegyi_core::{Color, Piece, Square};
 
 use crate::HIDDEN;

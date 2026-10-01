@@ -1,3 +1,5 @@
+//! Configuration, resource, and continuation errors exposed by the portable engine.
+
 use std::{error::Error, fmt};
 
 #[derive(Clone, Debug, Eq, PartialEq)]

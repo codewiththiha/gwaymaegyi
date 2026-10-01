@@ -1,3 +1,5 @@
+// Yield search through tasks without microtask starvation or nested-timer throttling.
+
 export function createScheduler() {
   if (typeof MessageChannel === 'undefined') {
     return {schedule: callback => setTimeout(callback, 0), cancel: clearTimeout, close() {}};

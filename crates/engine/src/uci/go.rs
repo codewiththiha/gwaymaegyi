@@ -1,3 +1,5 @@
+//! Search-limit parsing and checked native clock allocation for go requests.
+
 use gwaymaegyi_search::{MAX_DEPTH, SearchLimits};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

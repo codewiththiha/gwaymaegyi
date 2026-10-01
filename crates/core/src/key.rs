@@ -1,3 +1,6 @@
+//! Deterministic full and material-subset keys.
+//! These identify chess positions; they are not cryptographic hashes.
+
 use crate::{Color, Piece, PieceKind, Square};
 
 /// Full identity and the independent material subsets used by evaluation history.

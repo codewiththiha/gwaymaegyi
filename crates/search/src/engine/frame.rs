@@ -1,3 +1,5 @@
+//! Owned node windows, pending probes, and explicit continuation states.
+
 use super::table::Bound;
 use crate::INFINITY;
 use gwaymaegyi_core::{Board, Move, Successor};

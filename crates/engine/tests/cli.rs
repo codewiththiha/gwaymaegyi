@@ -1,3 +1,5 @@
+//! Utility-command output and invalid-input regression tests.
+
 use std::error::Error;
 
 fn output(args: &[&str]) -> Result<String, Box<dyn Error>> {

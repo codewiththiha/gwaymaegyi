@@ -1,3 +1,5 @@
+// Load browser bindings, bound startup requests, and expose the worker protocol.
+
 import init, {Engine, capabilities_json} from './gwaymaegyi_wasm.js';
 import {createRuntime} from './worker-runtime.mjs';
 

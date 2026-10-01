@@ -1,3 +1,5 @@
+//! Static-score policy delegation, legal move ordering, and path repetition checks.
+
 use super::Task;
 use crate::engine::{frame::Frame, table::Cache};
 use gwaymaegyi_core::{MoveKind, PieceKind};

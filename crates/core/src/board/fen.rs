@@ -1,3 +1,6 @@
+//! Structural standard/Chess960 FEN parsing and canonical formatting.
+//! Parsed positions are not guaranteed to be reachable from a legal game.
+
 use std::{fmt, str::FromStr};
 
 use super::castling::rook_for_symbol;
