@@ -164,8 +164,10 @@ No tablebase files are bundled.
 
 ## Dataset tools, 50-position benchmark, aggressive phase parity, and SMP
 
-Implemented across `gwaymaegyi-core`, `gwaymaegyi-search`, `gwaymaegyi`, and
-`gwaymaegyi-wasm`:
+Verified revision: `b8fb1fd35925a21a75a4118d4134268f7fddd81a`.
+[CI evidence](https://github.com/codewiththiha/gwaymaegyi/actions/runs/36880454007).
+Implemented and verified across `gwaymaegyi-core`, `gwaymaegyi-search`, `gwaymaegyi`,
+and `gwaymaegyi-wasm`:
 
 - Binary 32-byte `BulletRecord` conversion (`decode_bullet_records`,
   `encode_bullet_records`) and all 11 tactical/aggressive position filters
