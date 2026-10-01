@@ -20,6 +20,7 @@ Usage:\n\
   gwaymaegyi perft <depth> [FEN]\n\
   gwaymaegyi moves [FEN]\n\
   gwaymaegyi fen <FEN>\n\
+  gwaymaegyi datagen <positions> [threads] [seed] [output]\n\
   gwaymaegyi convert <decode|encode> <input> <output>\n\
   gwaymaegyi filter <1..11|name> <input> [output]\n\
   gwaymaegyi --version\n\
@@ -65,6 +66,7 @@ pub fn run(
             writeln!(output, "{}", moves.join(" "))?;
         }
         "fen" => writeln!(output, "{}", parse_board(args, true)?)?,
+        "datagen" => run_datagen(args, output)?,
         "convert" => run_convert(args, output)?,
         "filter" => run_filter(args, output)?,
         _ => return Err(format!("unknown command: {command}; try --help").into()),
@@ -104,6 +106,62 @@ fn run_bench(
         report.positions, report.depth, report.total_nodes, nps
     )?;
     Ok(())
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn run_datagen(
+    mut args: impl Iterator<Item = String>,
+    output: &mut impl Write,
+) -> Result<(), Box<dyn Error>> {
+    let positions: usize = args
+        .next()
+        .ok_or("datagen requires a position count")?
+        .parse()?;
+    let threads: u8 = match args.next() {
+        Some(raw) => raw.parse()?,
+        None => 1,
+    };
+    let seed: u64 = match args.next() {
+        Some(raw) => raw.parse()?,
+        None => 19,
+    };
+    let output_path = args.next();
+    if args.next().is_some() {
+        return Err("datagen takes at most four arguments".into());
+    }
+    let config = crate::DatagenConfig {
+        positions,
+        threads,
+        seed,
+        opt_nodes: 256,
+        max_nodes: 2_048,
+        max_depth: 4,
+        ..crate::DatagenConfig::default()
+    };
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    let records = crate::generate_training_data(&config, &cancel)?;
+    if let Some(destination) = output_path {
+        let mut body = String::new();
+        for record in &records {
+            body.push_str(&record.to_string());
+            body.push('\n');
+        }
+        fs::write(destination, body)?;
+        writeln!(output, "generated {} records", records.len())?;
+    } else {
+        for record in &records {
+            writeln!(output, "{record}")?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(target_family = "wasm")]
+fn run_datagen(
+    _args: impl Iterator<Item = String>,
+    _output: &mut impl Write,
+) -> Result<(), Box<dyn Error>> {
+    Err("datagen requires native worker threads".into())
 }
 
 fn run_convert(

@@ -160,5 +160,23 @@ Final source revision `5dc818fe91f705bdf69f4c82bc3a682075df3482` passed both
 [standard CI](https://github.com/codewiththiha/gwaymaegyi/actions/runs/36864353881)
 and [extended Windows/macOS CI](https://github.com/codewiththiha/gwaymaegyi/actions/runs/36864514467);
 all jobs succeeded, including native UCI and snapshot checks on both additional OSes.
-Wider table coverage, single-position SMP, controlled strength calibration and
-broader tactical/parity tests remain open work. No tablebase files are bundled.
+No tablebase files are bundled.
+
+## Dataset tools, 50-position benchmark, aggressive phase parity, and SMP
+
+Implemented across `gwaymaegyi-core`, `gwaymaegyi-search`, `gwaymaegyi`, and
+`gwaymaegyi-wasm`:
+
+- Binary 32-byte `BulletRecord` conversion (`decode_bullet_records`,
+  `encode_bullet_records`) and all 11 tactical/aggressive position filters
+  (`FilterKind`, `filter_lines`, `has_compensation`) exposed in Rust, CLI
+  (`convert`, `filter`), and WASM.
+- Full-engine 50-position benchmark suite (`BENCH_POSITIONS`, `run_benchmark`)
+  and `printparams` tuning export across CLI, UCI, and WASM.
+- Persistent material-history sacrifice detection, dynamic neural phase
+  switching (`update_phase_model`), queen/material scaling, and interior draw
+  contempt in aggressive mode.
+- Lock-striped `SharedTable`, helper-worker quiet move-order diversification,
+  single-position parallel analysis (`analyze_parallel`), UCI `Threads` (1–16),
+  and seeded self-play training data generation (`datagen`).
+

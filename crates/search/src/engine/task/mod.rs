@@ -37,6 +37,7 @@ pub(super) struct Task {
     pub style_applied: bool,
     pub tablebase: Option<std::sync::Arc<dyn crate::TablebaseProbe>>,
     pub active_model: gwaymaegyi_eval::Model,
+    pub worker_id: u8,
     root_nodes: Vec<u64>,
     root_base: Option<(usize, u64)>,
     lmr_table: Vec<i16>,
@@ -99,6 +100,7 @@ impl Task {
             style_applied: false,
             tablebase,
             active_model: options.model(&root),
+            worker_id: 0,
             root_nodes: vec![0; root_count],
             root_base: None,
             lmr_table: Self::lmr_table_for(options.tuning()),
@@ -462,7 +464,8 @@ mod tests {
         }
         let balance = game.board().material(game.board().side_to_move())
             - game.board().material(game.board().side_to_move().opposite());
-        assert!(crate::Options::detect_sacrifice(game.material_history(), balance) < 0);
+        let detected = Options::detect_sacrifice(game.material_history(), balance);
+        assert!(detected < 0);
 
         let options = Options::default().with_mode(crate::Mode::Aggressive);
         let mut task = Task::new(&game, options, SearchLimits::default(), &[], 0, None)?;

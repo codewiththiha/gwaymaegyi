@@ -20,6 +20,8 @@ use gwaymaegyi_core::{Game, Outcome};
 use gwaymaegyi_eval::Accumulator;
 use std::sync::Arc;
 
+pub use self::table::SharedTable;
+
 /// Portable orchestration owns its game, configuration, and active continuation.
 #[derive(Debug)]
 pub struct Engine {
@@ -29,6 +31,7 @@ pub struct Engine {
     task: Option<Task>,
     style_loss: i32,
     tablebase: Option<Arc<dyn TablebaseProbe>>,
+    worker_id: u8,
 }
 
 impl Engine {
@@ -42,6 +45,7 @@ impl Engine {
             task: None,
             style_loss: 0,
             tablebase: None,
+            worker_id: 0,
         })
     }
     #[must_use]
@@ -87,6 +91,17 @@ impl Engine {
         self.task = None;
         self.cache.clear();
         self.tablebase = tablebase;
+    }
+
+    /// Attach a lock-striped shared transposition table for single-position parallel search.
+    pub fn set_shared_table(&mut self, shared: Option<Arc<SharedTable>>) {
+        self.task = None;
+        self.cache.set_shared(shared);
+    }
+
+    /// Sets the worker identifier (`0` for primary, `1..=15` for helper diversification).
+    pub const fn set_worker_id(&mut self, worker_id: u8) {
+        self.worker_id = worker_id;
     }
 
     /// Begin a distinct game and release game-specific search history.
@@ -154,6 +169,7 @@ impl Engine {
             self.style_loss,
             self.tablebase.clone(),
         )?;
+        task.worker_id = self.worker_id;
         if task.report.status == SearchStatus::Running
             && matches!(self.options.strength(), Strength::Full)
             && self.options.mode() != crate::Mode::Human
@@ -259,7 +275,7 @@ impl Engine {
         let state = Accumulator::new(board, self.options.model(board));
         let side = board.side_to_move();
         let balance = board.material(side) - board.material(side.opposite());
-        let sacrifice = crate::Options::detect_sacrifice(self.game.material_history(), balance);
+        let sacrifice = Options::detect_sacrifice(self.game.material_history(), balance);
         let static_score = self
             .options
             .evaluate_with_sacrifice(board, &state, board, sacrifice);

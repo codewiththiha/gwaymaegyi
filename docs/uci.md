@@ -14,9 +14,13 @@ position startpos moves e2e4 e7e5
 go wtime 60000 btime 60000 winc 1000 binc 1000
 ```
 
-Options: Hash (1–64 MiB), MultiPV (1–5), Mode, UCI_Chess960, UCI_LimitStrength,
-UCI_Elo (500–3000), Skill_Level (1–21), SyzygyPath (native local tablebase files),
-Seed (unsigned 64-bit decimal), Move Overhead (0–5000 ms), and Ponder. Turning
+Options: Hash (1–64 MiB), Threads (1–16), MultiPV (1–5), Mode, UCI_Chess960,
+UCI_LimitStrength, UCI_Elo (500–3000), Skill_Level (1–21), SyzygyPath (native
+local tablebase files), Seed (unsigned 64-bit decimal), Move Overhead (0–5000 ms),
+and Ponder. Setting `Threads` above 1 attaches a lock-striped `SharedTable` and
+spawns helper workers with diversified quiet move ordering for active `go`
+searches. Non-UCI diagnostic commands `bench [depth] [positions]` and
+`printparams` are also supported interactively. Turning
 limit strength off selects full strength. Numeric Elo
 values are **uncalibrated presets**, not measured engine ratings. Analysis mode
 ignores the configured strength cap.

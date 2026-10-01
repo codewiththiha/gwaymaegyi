@@ -83,7 +83,10 @@ hits are zero in this build); engine scores use normalized centipawns, with a se
 mate-distance getter. The worker uses `bestMoveNodes` and the per-engine timing
 parameters to choose an adaptive soft stop no later than the `timeMs` deadline;
 one synchronous slice may finish after that deadline.
-The original normalize_fen/legal_moves/play_uci/perft helpers remain available.
+The original normalize_fen/legal_moves/play_uci/perft helpers remain available,
+alongside portable dataset and benchmark exports (`run_benchmark_json`,
+`decode_bullet_records_wasm`, `encode_bullet_records_wasm`, `filter_records_wasm`,
+and `filter_names_json`).
 These position-only helpers differ from the engine game API, which enforces
 automatic outcomes and owns repetition history.
 

@@ -9,11 +9,15 @@ use super::{
 };
 use crate::NativeTablebases;
 use gwaymaegyi_search::TablebaseProbe;
-use gwaymaegyi_search::{Engine, Parameter, SearchTuning};
+use gwaymaegyi_search::{Engine, Parameter, SearchTuning, SharedTable};
 use std::fmt::Write as _;
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, AtomicU64, Ordering},
+};
 use std::{
     sync::mpsc::{Receiver, SyncSender},
+    thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
 
@@ -44,6 +48,9 @@ struct Active {
     prev_best: Option<gwaymaegyi_core::Move>,
     score_hist: [i32; 3],
     score_count: u8,
+    helper_stop: Arc<AtomicBool>,
+    helper_nodes: Arc<AtomicU64>,
+    helpers: Vec<JoinHandle<()>>,
 }
 #[derive(Debug)]
 struct Worker {
@@ -53,6 +60,9 @@ struct Worker {
     output: SyncSender<String>,
     tablebases: Option<Arc<NativeTablebases>>,
     tablebase_path: Option<String>,
+    last_fen: String,
+    last_moves: Vec<String>,
+    shared_table: Option<Arc<SharedTable>>,
 }
 
 pub(super) fn run(input: &Receiver<Command>, output: &SyncSender<String>) {
@@ -67,6 +77,9 @@ pub(super) fn run(input: &Receiver<Command>, output: &SyncSender<String>) {
         output: output.clone(),
         tablebases: None,
         tablebase_path: None,
+        last_fen: gwaymaegyi_core::START_FEN.to_owned(),
+        last_moves: Vec::new(),
+        shared_table: None,
     };
     loop {
         for command in input.try_iter().take(32) {
@@ -133,6 +146,11 @@ impl Worker {
                 if let Err(error) = result {
                     return self.rejected(&error.to_string());
                 }
+                if let Some(shared) = &self.shared_table {
+                    shared.clear();
+                }
+                self.last_fen = gwaymaegyi_core::START_FEN.to_owned();
+                self.last_moves.clear();
                 self.active = None;
             }
             Command::Option { name, value } => {
@@ -140,14 +158,21 @@ impl Worker {
                     return self.set_tablebase_path(&value);
                 }
                 match self.options.set(&mut self.engine, &name, &value) {
-                    Ok(()) => self.active = None,
+                    Ok(()) => {
+                        self.shared_table = None;
+                        self.active = None;
+                    }
                     Err(error) => return self.rejected(&error),
                 }
             }
             Command::Position { fen, moves } => {
                 let borrowed: Vec<_> = moves.iter().map(String::as_str).collect();
                 match self.engine.set_position(&fen, &borrowed) {
-                    Ok(()) => self.active = None,
+                    Ok(()) => {
+                        self.last_fen = fen;
+                        self.last_moves = moves;
+                        self.active = None;
+                    }
                     Err(error) => return self.rejected(&error.to_string()),
                 }
             }
@@ -261,7 +286,19 @@ impl Worker {
     }
 
     fn start(&mut self, go: &Go) -> Result<(), String> {
+        self.finish();
         let started = Instant::now();
+        let helper_stop = Arc::new(AtomicBool::new(false));
+        let helper_nodes = Arc::new(AtomicU64::new(0));
+        let helpers = if self.options.threads > 1 {
+            let shared = self.ensure_shared_table()?;
+            shared.next_search();
+            self.engine.set_shared_table(Some(Arc::clone(&shared)));
+            self.spawn_helpers(go, &shared, &helper_stop, &helper_nodes)?
+        } else {
+            self.engine.set_shared_table(None);
+            Vec::new()
+        };
         let roots: Vec<_> = go.roots.iter().map(String::as_str).collect();
         self.engine
             .start_moves(go.limits, &roots)
@@ -305,20 +342,92 @@ impl Worker {
             prev_best: None,
             score_hist: [0; 3],
             score_count: 0,
+            helper_stop,
+            helper_nodes,
+            helpers,
         });
         if !self.engine.searching() && go.state == PlayState::Normal {
             self.finish();
         }
         Ok(())
     }
+
+    fn ensure_shared_table(&mut self) -> Result<Arc<SharedTable>, String> {
+        if let Some(existing) = &self.shared_table {
+            return Ok(Arc::clone(existing));
+        }
+        let table = SharedTable::new(self.engine.options().hash_mib())
+            .map_err(|error| error.to_string())?;
+        let shared = Arc::new(table);
+        self.shared_table = Some(Arc::clone(&shared));
+        Ok(shared)
+    }
+
+    fn spawn_helpers(
+        &self,
+        go: &Go,
+        shared: &Arc<SharedTable>,
+        stop: &Arc<AtomicBool>,
+        nodes: &Arc<AtomicU64>,
+    ) -> Result<Vec<JoinHandle<()>>, String> {
+        let mut handles = Vec::with_capacity(usize::from(self.options.threads.saturating_sub(1)));
+        let mut base_options = self.engine.options();
+        base_options
+            .set_hash_mib(1)
+            .map_err(|error| error.to_string())?;
+        for worker_id in 1..self.options.threads {
+            let shared_ref = Arc::clone(shared);
+            let stop_ref = Arc::clone(stop);
+            let nodes_ref = Arc::clone(nodes);
+            let fen = self.last_fen.clone();
+            let moves = self.last_moves.clone();
+            let roots = go.roots.clone();
+            let limits = go.limits;
+            let tb = self
+                .tablebases
+                .as_ref()
+                .map(|probe| Arc::clone(probe) as Arc<dyn TablebaseProbe>);
+            handles.push(thread::spawn(move || {
+                let Ok(mut helper) = Engine::new() else {
+                    return;
+                };
+                helper.set_worker_id(worker_id);
+                helper.set_tablebase(tb);
+                if helper.configure(base_options).is_err() {
+                    return;
+                }
+                helper.set_shared_table(Some(shared_ref));
+                let move_refs: Vec<_> = moves.iter().map(String::as_str).collect();
+                let root_refs: Vec<_> = roots.iter().map(String::as_str).collect();
+                if helper.set_position(&fen, &move_refs).is_err()
+                    || helper.start_moves(limits, &root_refs).is_err()
+                {
+                    return;
+                }
+                let mut prev_nodes = 0_u64;
+                while helper.searching() && !stop_ref.load(Ordering::Relaxed) {
+                    let Ok(rep) = helper.step(256) else {
+                        break;
+                    };
+                    let delta = rep.nodes.saturating_sub(prev_nodes);
+                    prev_nodes = rep.nodes;
+                    nodes_ref.fetch_add(delta, Ordering::Relaxed);
+                }
+            }));
+        }
+        Ok(handles)
+    }
     fn advance(&mut self) -> bool {
-        let Ok(report) = self.engine.step(256) else {
+        let Ok(mut report) = self.engine.step(256) else {
             self.finish();
             return self.rejected("search failed");
         };
         let Some(active) = self.active.as_mut() else {
             return self.rejected("missing active search");
         };
+        report.nodes = report
+            .nodes
+            .saturating_add(active.helper_nodes.load(Ordering::Relaxed));
         let elapsed = active.started.elapsed().as_millis();
         let tuning = self.engine.options().tuning();
         let publish = report.depth > active.last_depth;
@@ -403,8 +512,15 @@ impl Worker {
 
     fn finish(&mut self) {
         if let Some(active) = self.active.take() {
+            active.helper_stop.store(true, Ordering::Relaxed);
             self.engine.stop();
-            let report = self.engine.report();
+            for handle in active.helpers {
+                let _ = handle.join();
+            }
+            let mut report = self.engine.report();
+            report.nodes = report
+                .nodes
+                .saturating_add(active.helper_nodes.load(Ordering::Relaxed));
             if report.nodes != active.last_nodes || report.depth == 0 {
                 for line in output::info(
                     &report,

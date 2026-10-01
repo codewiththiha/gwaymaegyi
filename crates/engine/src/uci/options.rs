@@ -6,6 +6,7 @@ use gwaymaegyi_search::{Behavior, Engine, Parameter, SkillLevel};
 pub(super) struct ProtocolOptions {
     pub overhead: u64,
     pub ponder: bool,
+    pub threads: u8,
     elo: u16,
     limited: bool,
 }
@@ -14,6 +15,7 @@ impl Default for ProtocolOptions {
         Self {
             overhead: 20,
             ponder: false,
+            threads: 1,
             elo: 1500,
             limited: false,
         }
@@ -31,10 +33,17 @@ impl ProtocolOptions {
         let mut limited = self.limited;
         let mut overhead = self.overhead;
         let mut ponder = self.ponder;
+        let mut threads = self.threads;
         match name.to_ascii_lowercase().as_str() {
             "hash" => options
                 .set_hash_mib(value.parse().map_err(|_| "invalid hash size")?)
                 .map_err(|error| error.to_string())?,
+            "threads" => {
+                threads = value.parse().map_err(|_| "invalid thread count")?;
+                if !(1..=16).contains(&threads) {
+                    return Err("threads must be 1 through 16".into());
+                }
+            }
             "multipv" => options
                 .set_multi_pv(value.parse().map_err(|_| "invalid MultiPV")?)
                 .map_err(|error| error.to_string())?,
@@ -99,6 +108,7 @@ impl ProtocolOptions {
         self.limited = limited;
         self.overhead = overhead;
         self.ponder = ponder;
+        self.threads = threads;
         Ok(())
     }
 }
@@ -108,6 +118,7 @@ pub(super) const IDENTIFICATION: &str = concat!(
     env!("CARGO_PKG_VERSION"),
     "\nid author codewiththiha\n\
 option name Hash type spin default 8 min 1 max 64\n\
+option name Threads type spin default 1 min 1 max 16\n\
 option name SyzygyPath type string default\n\
 option name MultiPV type spin default 1 min 1 max 5\n\
 option name Mode type combo default balanced var balanced var aggressive var human-like var analysis\n\

@@ -527,3 +527,29 @@ fn root_tablebase_is_exact_but_respects_search_controls() -> Result<(), Box<dyn 
     assert_eq!(multipv_report.variations.len(), 2);
     Ok(())
 }
+
+#[test]
+fn shared_table_coordinates_multi_worker_search_entries() -> Result<(), Box<dyn Error>> {
+    use gwaymaegyi_search::SharedTable;
+    let shared = Arc::new(SharedTable::new(1)?);
+    let mut primary = Engine::new()?;
+    let mut helper = Engine::new()?;
+    primary.set_worker_id(0);
+    helper.set_worker_id(1);
+    primary.set_shared_table(Some(Arc::clone(&shared)));
+    helper.set_shared_table(Some(Arc::clone(&shared)));
+    let limits = SearchLimits {
+        depth: 2,
+        nodes: 4_000,
+    };
+    helper.start(limits)?;
+    let helper_report = finish(&mut helper, 128)?;
+    assert!(helper_report.best_move.is_some());
+    shared.next_search();
+    primary.start(limits)?;
+    let primary_report = finish(&mut primary, 128)?;
+    assert!(primary_report.best_move.is_some());
+    shared.clear();
+    Ok(())
+}
+

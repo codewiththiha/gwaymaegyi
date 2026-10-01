@@ -91,7 +91,13 @@ impl Task {
         {
             frame.depth = 0;
         }
-        Self::order(frame, &cache.history, successors, self.priors());
+        Self::order(
+            frame,
+            &cache.history,
+            successors,
+            self.priors(),
+            self.worker_id,
+        );
         frame.stage = Stage::Moves;
         if frame.depth <= 0 && !frame.flags.in_check() {
             frame.best = frame.evaluation;

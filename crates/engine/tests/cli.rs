@@ -93,3 +93,54 @@ fn convert_and_filter_subcommands_round_trip_records() -> Result<(), Box<dyn Err
     let _ = std::fs::remove_file(text_out);
     Ok(())
 }
+
+#[test]
+fn datagen_and_parallel_analysis_produce_valid_outputs() -> Result<(), Box<dyn Error>> {
+    use gwaymaegyi::{
+        AnalysisRequest, DatagenConfig, Options, SearchLimits, analyze_parallel,
+        generate_training_data, multipv_threshold, normalize_opening_line,
+    };
+    use std::sync::atomic::AtomicBool;
+
+    assert_eq!(normalize_opening_line("\u{FEFF}  \r\n")?, None);
+    let normalized = normalize_opening_line(
+        "\u{FEFF}rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\r",
+    )?;
+    assert_eq!(normalized.as_deref(), Some(gwaymaegyi_core::START_FEN));
+    assert!(multipv_threshold(5) > multipv_threshold(20));
+    assert_eq!(multipv_threshold(30), 0);
+
+    let cancel = AtomicBool::new(false);
+    let config = DatagenConfig {
+        positions: 2,
+        threads: 1,
+        seed: 7,
+        opt_nodes: 64,
+        max_nodes: 256,
+        max_depth: 2,
+        ..DatagenConfig::default()
+    };
+    let records = generate_training_data(&config, &cancel)?;
+    assert_eq!(records.len(), 2);
+
+    let cli_out = output(&["datagen", "1", "1", "7"])?;
+    assert_eq!(cli_out.lines().count(), 1);
+    assert!(cli_out.contains(" | "));
+
+    let request = AnalysisRequest {
+        fen: gwaymaegyi_core::START_FEN.to_owned(),
+        moves: Vec::new(),
+        roots: Vec::new(),
+        options: Options::default(),
+        limits: SearchLimits {
+            depth: 2,
+            nodes: 4_000,
+        },
+        tablebase: None,
+    };
+    let report = analyze_parallel(&request, 2, &cancel)?;
+    assert!(report.best_move.is_some());
+    assert!(report.nodes > 0);
+    Ok(())
+}
+

@@ -16,7 +16,7 @@ pub use dataset::{
     BULLET_RECORD_BYTES, BulletRecord, DatasetError, FilterKind, GameResult, TrainingRecord,
     decode_bullet_records, encode_bullet_records, filter_lines,
 };
-pub use engine::Engine;
+pub use engine::{Engine, SharedTable};
 pub use error::EngineError;
 pub use report::{Completion, PrincipalVariation, SearchReport, SearchStatus};
 pub use strength::{SkillLevel, Strength};

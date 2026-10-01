@@ -52,6 +52,7 @@ impl Task {
         history: &History,
         successors: Vec<Successor>,
         priors: crate::engine::history::PriorMoves,
+        worker_id: u8,
     ) {
         let tt = frame.tt_move;
         let mut scored = Vec::with_capacity(successors.len());
@@ -86,7 +87,15 @@ impl Task {
                     }))
                     - if see_ok { 0 } else { 10_000_000 }
             } else {
-                history.quiet_score(&frame.board, chess_move, frame.ply, priors)
+                let base = history.quiet_score(&frame.board, chess_move, frame.ply, priors);
+                if worker_id == 0 {
+                    base
+                } else {
+                    let salt = i32::from(worker_id) * 17;
+                    let idx = chess_move.from().index() * 64 + chess_move.to().index();
+                    let hash = i32::try_from(idx).unwrap_or(0);
+                    base + (((hash ^ salt) & 0x1F) - 16)
+                }
             };
             scored.push(ScoredMove {
                 successor: candidate,

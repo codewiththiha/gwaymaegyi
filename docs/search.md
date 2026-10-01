@@ -42,8 +42,11 @@ moves and publishes only completed sets of variations.
 ## Modes
 
 - **balanced**: neutral neural middle/endgame evaluation.
-- **aggressive**: aggressive middle-game model, material scaling, and a bounded
-  compensation preference when sacrificing material with a favorable score.
+- **aggressive**: aggressive middle-game model with dynamic phase switching
+  (middle-game -> aggressive when score >= -100 cp, aggressive -> balanced when
+  score <= -150 cp, endgame when non-pawn material <= 1300), persistent
+  game-history sacrifice detection, queen/material multiplier scaling, and
+  interior draw contempt (-25 cp for root mover, +25 cp for opponent).
 - **human-like**: balanced model with compensation preferences and, at limited
   strength, extra candidate error tolerance. Decisions are reproducible by seed.
 - **analysis**: best-score selection, optional MultiPV, and no strength cap even
