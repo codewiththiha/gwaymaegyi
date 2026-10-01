@@ -97,7 +97,7 @@ fn all_eleven_position_filters_distinguish_matching_and_quiet_records() {
     let f3 = rec("4k2r/pppppppp/2PPPP2/1PPPPPP1/1PPPPPP1/3PP3/8/R1BQKBNR w KQk - 0 1 | 120 | 1.0");
     assert!(FilterKind::SpaceAdvantage.matches(&f3));
 
-    let f4 = rec("2kr3r/ppp2ppp/2n5/6P1/8/2N5/PPP2P1P/R4RK1 w - - 0 1 | 85 | 1.0");
+    let f4 = rec("2kr1bnr/pppqpppp/2n5/2P5/8/2N2N2/PPPQPPPP/R1B2RK1 w - - 0 1 | 85 | 1.0");
     assert!(FilterKind::OppositeCastlingStorm.matches(&f4));
 
     let f5 = rec("rnbqkbnr/pppppppp/8/8/2B1P3/2N2N2/PPPPQPPP/R1B2RK1 w kq - 0 1 | 180 | 1.0");
