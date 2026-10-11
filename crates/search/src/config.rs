@@ -249,11 +249,22 @@ impl Options {
         0
     }
 
+    /// Approximate strengths search extra alternatives for style choices; the
+    /// forced count shrinks as the nominal Elo target closes the style windows.
     pub(super) const fn effective_pv(self) -> u8 {
-        if !matches!(self.strength, Strength::Full) && !matches!(self.mode, Mode::Analysis) {
-            5
-        } else {
+        if matches!(self.mode, Mode::Analysis) {
+            return self.multi_pv;
+        }
+        let floor = match self.strength {
+            Strength::Full => 1,
+            Strength::Approximate(elo) if elo >= 3000 => 1,
+            Strength::Approximate(elo) if elo >= 2500 => 2,
+            Strength::Approximate(_) => 5,
+        };
+        if self.multi_pv > floor {
             self.multi_pv
+        } else {
+            floor
         }
     }
     pub(super) fn limit(self, mut limits: SearchLimits) -> SearchLimits {
@@ -273,6 +284,15 @@ impl Options {
     pub(super) fn cp_loss(self) -> i32 {
         match self.strength {
             Strength::Approximate(elo) => (120 - i32::from(elo) / 25).max(0),
+            Strength::Full => 0,
+        }
+    }
+    /// Style-error window in centipawns, decaying linearly from the full base
+    /// at 500 nominal Elo to zero at 3000, so higher targets deviate less.
+    #[must_use]
+    pub(super) fn style_window(self, base: i32) -> i32 {
+        match self.strength {
+            Strength::Approximate(elo) => base * (3000 - i32::from(elo)).max(0) / 2500,
             Strength::Full => 0,
         }
     }
@@ -312,5 +332,30 @@ impl SearchLimits {
         } else {
             Ok(self)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Options;
+    use std::error::Error;
+
+    #[test]
+    fn style_window_decays_with_nominal_elo() -> Result<(), Box<dyn Error>> {
+        let mut options = Options::default();
+        options.set_elo(500)?;
+        assert_eq!(options.style_window(25), 25);
+        assert_eq!(options.style_window(200), 200);
+        options.set_elo(1500)?;
+        assert_eq!(options.style_window(25), 15);
+        assert_eq!(options.style_window(100), 60);
+        options.set_elo(2200)?;
+        assert_eq!(options.style_window(25), 8);
+        options.set_elo(3000)?;
+        assert_eq!(options.style_window(25), 0);
+        assert_eq!(options.style_window(200), 0);
+        options.set_elo(0)?;
+        assert_eq!(options.style_window(25), 0);
+        Ok(())
     }
 }

@@ -245,13 +245,19 @@ impl Task {
         let our_color = self.root.side_to_move();
         let starting_mat = self.root.material(our_color);
         let ply = i32::try_from(self.game.position_history().len()).unwrap_or(0) - 1;
+        // Style windows decay with the nominal Elo target: stronger presets
+        // keep character but stay closer to the best line.
+        let diversity_window = self.options.style_window(25);
+        let sacrifice_minor = self.options.style_window(50);
+        let sacrifice_major = self.options.style_window(100);
+        let sacrifice_queen = self.options.style_window(200);
         let mut best_index = 0;
         let mut mistake: Option<i32> = None;
         let mut sacrifice: i32 = 0;
         for (index, line) in self.report.variations.iter().enumerate().take(5) {
             let eval_diff = best.score_cp - line.score_cp;
             let m_diff = starting_mat - self.pv_material(&line.moves, our_color);
-            if ply < 7 && eval_diff < 25 && line.score_cp > -100 && index < 4 {
+            if ply < 7 && eval_diff < diversity_window && line.score_cp > -100 && index < 4 {
                 let draw =
                     (self.options.seed() ^ self.root.key().full() ^ u64::from(self.iteration)) % 5;
                 if draw == index as u64 {
@@ -266,9 +272,9 @@ impl Task {
             }
             if line.score_cp > 0
                 && m_diff < sacrifice
-                && ((m_diff < 0 && eval_diff < 50)
-                    || (m_diff <= -200 && eval_diff < 100)
-                    || (m_diff <= -400 && eval_diff < 200))
+                && ((m_diff < 0 && eval_diff < sacrifice_minor)
+                    || (m_diff <= -200 && eval_diff < sacrifice_major)
+                    || (m_diff <= -400 && eval_diff < sacrifice_queen))
             {
                 best_index = index;
                 mistake = Some(eval_diff);

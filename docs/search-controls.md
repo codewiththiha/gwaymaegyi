@@ -41,18 +41,23 @@ caps and stop/reset remain effective during retries.
 Approximate-strength selections use an accumulated human-style policy with
 seeded, reproducible choices:
 
-- Opening diversity: before move 7, a line within 25 cp of the best that still
-  leads may replace it when a seeded draw matches its index.
+- Opening diversity: before move 7, a line within a window of 25 cp of the best
+  that still leads may replace it when a seeded draw matches its index. The
+  window decays linearly with the nominal Elo target and closes entirely at
+  3000, so stronger presets deviate less.
 - Mistake budget: from move 7 on, the first line whose deficit is positive and
   below the accumulated budget plus 10 cp may be chosen; the chosen deficit is
   subtracted from the budget and a per-move budget of 120 minus nominal Elo divided by 25
   centipawns is added.
 - Sacrifice preference: a leading line that already trades material may replace
-  the choice at progressively wider material deficits.
+  the choice at progressively wider material deficits; its centipawn tolerance
+  decays with the nominal Elo target the same way the diversity window does.
 
-The budget persists inside one `Engine` across searches and resets on new
-games, position resets, or configuration commits. Full strength and analysis
-always take the best line.
+Style alternatives come from a forced principal-variation floor that decays
+with the nominal Elo target: five lines below 2500, two below 3000, and the
+requested count at 3000, where no style deviation remains. The budget persists
+inside one `Engine` across searches and resets on new games, position resets,
+or configuration commits. Full strength and analysis always take the best line.
 
 ## Native CPU parallelism
 
