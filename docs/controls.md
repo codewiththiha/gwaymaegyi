@@ -50,7 +50,7 @@ the active setting; `Skill_Level=21` or disabling UCI_LimitStrength restores ful
 | Search algorithm tuning | Options::tuning / SearchTuning | Behavior + 38 numeric options | set_behavior / set_parameter | behavior / parameter requests |
 | Adaptive time factors | SearchTuning | NodeTmFactor*, BmFactor1, ScoreDrop* | set_parameter / soft_time_limit_ms | set_parameter, applied by worker |
 | Time allowance | Host-owned | go clocks/movetime | Host-owned | timeMs deadline, checked between slices |
-| Reporting overhead | Host-owned | Adapter-owned | Host-owned | reportIntervalMs |
+| Reporting overhead | Host-owned | Adapter-owned | Host-owned | reportIntervalMs: minimum cadence for decision changes; new iterations always post, unchanged reports trickle on a slow liveness heartbeat |
 
 `capabilities_json()` exposes modes, all 21 skill presets, supported limits,
 backend identity, live-limit support, and the false Elo-calibration flag.

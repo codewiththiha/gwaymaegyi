@@ -67,9 +67,26 @@ export function createRuntime(factory, post, hooks = {}) {
       else job.last = copyReport(engine.step(job.quantum));
       updateAdaptiveDeadline(engine, job);
       const finished = job.last.finished;
-      if (finished || job.last.depth !== job.publishedDepth || now() - job.publishedAt >= job.reportIntervalMs) {
+      // Publish immediately only when the search reaches a new iteration or the
+      // decision moves materially; identical reports from a long final iteration
+      // trickle out on a slow liveness heartbeat instead of reportIntervalMs,
+      // so hosts repaint arrows only when there is something new to draw.
+      const elapsed = now() - job.publishedAt;
+      const decisionChanged =
+        job.last.bestMove !== job.publishedBest ||
+        job.last.mate !== job.publishedMate ||
+        (job.last.scoreCp !== null && job.publishedScore !== null &&
+          Math.abs(job.last.scoreCp - job.publishedScore) >= 10);
+      const heartbeatMs = Math.max(job.reportIntervalMs * 8, 400);
+      if (finished
+          || job.last.depth !== job.publishedDepth
+          || (decisionChanged && elapsed >= job.reportIntervalMs)
+          || elapsed >= heartbeatMs) {
         post({id: job.id, type: finished ? 'done' : 'progress', report: job.last});
         job.publishedDepth = job.last.depth;
+        job.publishedBest = job.last.bestMove;
+        job.publishedMate = job.last.mate;
+        job.publishedScore = job.last.scoreCp;
         job.publishedAt = now();
       }
       if (finished) current = null;
@@ -123,7 +140,8 @@ export function createRuntime(factory, post, hooks = {}) {
           const hardDeadline = timeMs === null ? null : startedAt + timeMs;
           const job = {id, ...compute, timeMs, startedAt, hardDeadline, deadline: hardDeadline,
             last: initial, adaptiveDepth: initial.depth, previousBest: null,
-            stability: 1, scoreHistory: [], publishedDepth: -1, publishedAt: now(), timer: null};
+            stability: 1, scoreHistory: [], publishedDepth: -1, publishedBest: null,
+            publishedMate: null, publishedScore: null, publishedAt: now(), timer: null};
           current = job;
           job.timer = schedule(() => pump(job));
           break;

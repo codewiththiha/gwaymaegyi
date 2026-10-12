@@ -102,6 +102,32 @@ const send = message => worker.postMessage(message);
   send({id:'bounded-status',type:'status'});
   const boundedState = await wait(message=>message.id==='bounded-status'&&message.type==='ack');
   assert.equal(boundedState.state.multiPv,32);
+  // Identical deeper-iteration reports must not repost at reportIntervalMs pace:
+  // only depth advances, material decision changes, or a slow liveness heartbeat.
+  const cadencePosts = [];
+  send({id: 'cadence', type: 'start', depth: 64, nodes: '18446744073709551615', quantum: 64, reportIntervalMs: 100});
+  const cadenceStartedAt = performance.now();
+  let previous = null;
+  await wait(message => {
+    if (message.id !== 'cadence' || message.type !== 'progress') return false;
+    const at = performance.now();
+    cadencePosts.push(message);
+    const report = message.report;
+    if (previous) {
+      const depthAdvanced = report.depth !== previous.report.depth;
+      const decided = report.bestMove !== previous.report.bestMove
+        || report.mate !== previous.report.mate
+        || (report.scoreCp !== null && previous.report.scoreCp !== null
+          && Math.abs(report.scoreCp - previous.report.scoreCp) >= 10);
+      assert.ok(depthAdvanced || decided || at - previous.at >= 395,
+        `silent-iteration repost under the liveness floor (gap ${(at - previous.at).toFixed(0)}ms)`);
+    }
+    previous = {report, at};
+    return at - cadenceStartedAt >= 1100 && cadencePosts.length >= 3;
+  });
+  send({id: 'stop-cadence', type: 'stop', target: 'cadence'});
+  const cadenceDone = await wait(message => message.id === 'cadence' && message.type === 'done');
+  assert.equal(cadenceDone.report.status, 'stopped');
   send({id: 'dispose', type: 'dispose'});
   await wait(message => message.id === 'dispose' && message.type === 'ack');
   console.log('Actual WASM worker: progress, stop, reset, stale suppression, rollback, target ids, mode/strength control passed');
